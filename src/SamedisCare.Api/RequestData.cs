@@ -17,18 +17,32 @@ public class RequestData
     public string LastError = string.Empty;
     public string LastResponseStatus = string.Empty;
 
+    /// <summary>
+    /// Dry-run marker for the consuming tool. This class suppresses no request on its
+    /// own — the only behaviour it changes here is the diagnostic GET dump, which is
+    /// written when TestMode is set AND the log level is debug (<see cref="ISyncLog.Level"/> &gt;= 2).
+    /// </summary>
+    public bool TestMode { get; set; }
+
+    /// <summary>
+    /// Target file for the diagnostic GET dump. A relative path resolves against the
+    /// working directory. Only used when <see cref="TestMode"/> and debug logging are on.
+    /// </summary>
+    public string DebugCsvPath { get; set; } = "debug_get_requests.csv";
+
     private readonly string _baseUrl;
     private readonly string _token;
     private readonly RestClientOptions _options;
     private readonly HttpSettings _httpSettings;
     private readonly ISyncLog _log;
 
-    public RequestData(string baseUrl, string token, HttpSettings httpSettings, ISyncLog log)
+    public RequestData(string baseUrl, string token, HttpSettings httpSettings, ISyncLog log, bool testMode = false)
     {
         _baseUrl = baseUrl;
         _token = token;
         _httpSettings = httpSettings;
         _log = log;
+        TestMode = testMode;
 
         _options = new RestClientOptions(_baseUrl)
         {
@@ -57,6 +71,8 @@ public class RequestData
         var response = client.ExecuteGet(request);
         response = HandleRetry(response, request, client.ExecuteGet);
         Capture(response);
+        if (TestMode && _log.Level >= 2)
+            WriteDebugGetCsv(resource, response);
         return response.Content ?? string.Empty;
     }
 
@@ -186,5 +202,59 @@ public class RequestData
             return execute(request);
         }
         return response;
+    }
+
+    private static readonly object DebugCsvLock = new();
+
+    private void WriteDebugGetCsv(string resource, RestResponse response)
+        => AppendDebugCsvRow(DebugCsvPath, "GET", resource, (int)response.StatusCode, response.Content);
+
+    /// <summary>
+    /// Appends one semicolon-separated row to the diagnostic dump, creating the file and
+    /// its header on first write. The response body is truncated to
+    /// <see cref="DebugBodyPreviewLength"/> characters and newlines are flattened, so one
+    /// request always stays one CSV row.
+    /// </summary>
+    internal static void AppendDebugCsvRow(string path, string method, string resource, int statusCode, string? body)
+    {
+        var preview = body ?? string.Empty;
+        if (preview.Length > DebugBodyPreviewLength)
+            preview = preview.Substring(0, DebugBodyPreviewLength);
+
+        var row = new[]
+        {
+            DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"),
+            method,
+            resource ?? string.Empty,
+            statusCode.ToString(),
+            preview.Replace("\r", " ").Replace("\n", " "),
+        };
+
+        lock (DebugCsvLock)
+        {
+            var needsHeader = !File.Exists(path) || new FileInfo(path).Length == 0;
+            using var sw = new StreamWriter(path, append: true, System.Text.Encoding.UTF8);
+            if (needsHeader)
+                sw.WriteLine(string.Join(";", DebugCsvHeaders.Select(EscapeCsv)));
+            sw.WriteLine(string.Join(";", row.Select(EscapeCsv)));
+        }
+    }
+
+    internal const int DebugBodyPreviewLength = 2000;
+
+    internal static readonly string[] DebugCsvHeaders =
+        { "Timestamp", "Method", "Resource", "StatusCode", "ResponseBody" };
+
+    /// <summary>
+    /// Quotes a CSV field when it contains a quote, the semicolon separator, or a newline,
+    /// doubling embedded quotes as the format requires.
+    /// </summary>
+    internal static string EscapeCsv(string value)
+    {
+        if (string.IsNullOrEmpty(value))
+            return string.Empty;
+        var needsQuotes = value.Contains('"') || value.Contains(';') || value.Contains('\r') || value.Contains('\n');
+        var sanitized = value.Replace("\"", "\"\"");
+        return needsQuotes ? $"\"{sanitized}\"" : sanitized;
     }
 }

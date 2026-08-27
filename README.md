@@ -13,6 +13,18 @@ of from copy-paste.
 | --- | --- |
 | `SamedisCare.Api` | Auth (Ident Services OAuth), HTTP, gridfilter/sort/pagination, resource routing |
 
+### What `SamedisCare.Api` covers today
+
+- **Transport**: `Authenticate`, `RequestData` (GET/POST/PUT, issue uploads, 429 retry), `HttpSettings`
+- **Query**: `FilterBuilder` for `gridfilter=...` payloads
+- **Routing**: `ITenantScope` / `TenantScope`
+- **Resources**: `Tenant`, `Inventories`, `Issues`, `Staffs`, `Positions`, `Departments`
+  — `Positions` and `Departments` also carry the generic `Find…Id` / `FindOrCreate…` helpers
+- **Diagnostics**: `ISyncLog` plus an optional GET dump via `RequestData.TestMode`
+
+Not in the library on purpose: CSV/Excel handling, LDAP, SAP, database access, and
+per-tool config shapes. Those belong to the consuming tool.
+
 ## Installation
 
 ```bash

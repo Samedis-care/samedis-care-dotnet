@@ -27,6 +27,13 @@
     <PackageReference Include="RestSharp" />
   </ItemGroup>
 
+  <!-- The diagnostic CSV helpers are internal on purpose — they are an implementation
+       detail, not part of the public surface — but they carry enough formatting logic
+       (quoting, truncation) to be worth testing directly. -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="SamedisCare.Api.Tests" />
+  </ItemGroup>
+
   <ItemGroup>
     <None Include="$(MSBuildThisFileDirectory)../../README.md" Pack="true" PackagePath="/" />
   </ItemGroup>
