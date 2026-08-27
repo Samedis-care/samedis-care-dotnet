@@ -4,16 +4,16 @@ using Xunit;
 
 namespace SamedisCare.Api.Tests;
 
-// Übernommen aus samedis-care-spl-sync (IssuesModelTests.cs). Die dortigen
-// PickServiceInterval-Tests sind NICHT mitgekommen — die testen DownloadEngine,
-// also SPL-spezifische Auswahllogik, und bleiben in spl-sync.
+// Taken from samedis-care-spl-sync (IssuesModelTests.cs). The PickServiceInterval tests
+// from that file did NOT come along — they exercise DownloadEngine, i.e. SPL-specific
+// selection logic, and stay in spl-sync.
 public class IssuesModelTests
 {
     [Fact]
     public void Deserializes_with_service_intervals_value_and_unit()
     {
-        // Vertrag für den Download: das Wartungsintervall kommt als with_service_intervals[]
-        // (value + unit day/week/month/year), siehe samedis-public.yaml.
+        // Download contract: the service interval arrives as with_service_intervals[]
+        // (value + unit day/week/month/year), see samedis-public.yaml.
         const string json = """
         { "data": [ { "id": "abc", "type": "issues",
           "attributes": { "issue_type": "maintenance", "title": "STK nach DGUV V3",

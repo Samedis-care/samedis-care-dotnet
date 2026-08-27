@@ -7,7 +7,7 @@ namespace SamedisCare.Api;
 
 /// <summary>
 /// Small grab-bag of helpers shared by the Samedis.care API layer.
-/// (vs. its larger Helper.cs which also had file/CSV utilities we don't use here).
+/// Deliberately limited to what the API layer needs — no file or CSV utilities.
 /// </summary>
 public static class Helper
 {

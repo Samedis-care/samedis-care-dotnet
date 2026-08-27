@@ -1,16 +1,17 @@
 # samedis-care-dotnet
 
-Gemeinsame .NET-Bibliotheken für die Tools rund um [Samedis.care](https://samedis.care).
+Shared .NET libraries for the tools around [Samedis.care](https://samedis.care).
 
-Dieses Repo bündelt die Zugriffsschicht auf die Samedis.care API V4, die bisher in jedem
-Tool unter `samedis-care-tools` als Kopie lag. Ziel ist, dass jedes Tool dieselbe geprüfte
-Auth-, HTTP- und Filter-Logik über ein NuGet-Paket bezieht statt über Copy-Paste.
+This repository holds the access layer for the Samedis.care API V4, which until now
+existed as a copy inside every tool under `samedis-care-tools`. The goal is that each
+tool consumes the same tested auth, HTTP and filter logic from a NuGet package instead
+of from copy-paste.
 
-## Pakete
+## Packages
 
-| Paket | Zweck |
+| Package | Purpose |
 | --- | --- |
-| `SamedisCare.Api` | Auth (Ident Services OAuth), HTTP, Gridfilter/Sort/Pagination, Resource-Routing |
+| `SamedisCare.Api` | Auth (Ident Services OAuth), HTTP, gridfilter/sort/pagination, resource routing |
 
 ## Installation
 
@@ -18,38 +19,42 @@ Auth-, HTTP- und Filter-Logik über ein NuGet-Paket bezieht statt über Copy-Pas
 dotnet add package SamedisCare.Api
 ```
 
-## Resource-Routing
+Targets `net8.0`, `net9.0` and `net10.0`. A project on any of those frameworks can
+consume the package; a lower target framework can never consume a higher one, which is
+why `net8.0` stays in the package for as long as a consumer needs it.
 
-`ITenantScope` kapselt den einzigen strukturellen Unterschied zwischen der normalen Welt
-und der Enterprise-Welt ("Service-Welt"): das Pfad-Prefix. Payload und Response sind für
-die gemeinsam unterstützten Resourcen identisch — ein Sync tauscht also nur den Scope,
-nicht seine Mapping-Logik.
+## Resource routing
+
+`ITenantScope` encapsulates the only structural difference between the normal world and
+the enterprise world ("service world"): the path prefix. Payload and response are
+identical for the resources both worlds support, so a sync only swaps the scope — never
+its mapping logic.
 
 ```csharp
 using SamedisCare.Api.Routing;
 
-// Normale Welt
+// Normal world
 var scope = TenantScope.Standard(tenantId);
 scope.Resource("inventories");
 // -> /api/v4/tenants/{tenantId}/inventories
 
-// Enterprise, client-bezogen (Spiegel der normalen Welt)
+// Enterprise, client-scoped (mirror of the normal world)
 var ent = TenantScope.Enterprise(tenantId, clientId);
 ent.Resource("inventories");
 // -> /api/v4/enterprise/tenants/{tenantId}/clients/{clientId}/inventories
 
-// Enterprise, einrichtungsübergreifendes Aggregat (überwiegend read-only)
+// Enterprise, cross-facility aggregate (mostly read-only)
 var agg = TenantScope.EnterpriseTenant(tenantId);
 agg.Resource("issues");
 // -> /api/v4/enterprise/tenants/{tenantId}/issues
 ```
 
-Die Enterprise-Welt unterstützt bewusst **weniger** Resourcen als die normale
-(kein `staffs`, `trainings`, `device_types`, `positions`, `profit_centers`; mehrere
-Resourcen nur lesend). Ein Consumer muss das berücksichtigen — `ITenantScope` baut Pfade,
-es garantiert nicht deren Existenz.
+The enterprise world deliberately supports **fewer** resources than the normal one
+(no `staffs`, `trainings`, `device_types`, `positions`, `profit_centers`; several
+resources are read-only). Consumers must account for that — `ITenantScope` builds paths,
+it does not guarantee they exist.
 
-## Entwicklung
+## Development
 
 ```bash
 dotnet restore SamedisCare.Dotnet.sln
@@ -57,22 +62,30 @@ dotnet build SamedisCare.Dotnet.sln -c Release
 dotnet test SamedisCare.Dotnet.sln -c Release
 ```
 
-Zielframework ist `net8.0` (alle Consumer laufen darauf). Paketversionen werden zentral
-in `Directory.Packages.props` verwaltet — in den `.csproj` steht bewusst keine Version.
+Running the full test suite locally requires the .NET 8, 9 and 10 runtimes, because the
+tests execute once per target framework.
+
+Package versions are managed centrally in `Directory.Packages.props` — the `.csproj`
+files deliberately carry no versions.
+
+## Documentation language
+
+All documentation in this repository is written in **English**: README, XML doc comments,
+code comments, and workflow comments. The package is public, so its documentation is too.
 
 ## Release
 
-Ein Versions-Tag löst Build, Tests, Pack und den Push nach nuget.org aus:
+Pushing a version tag builds, tests, packs and publishes to nuget.org:
 
 ```bash
 git tag v0.1.0
 git push origin v0.1.0
 ```
 
-Die Veröffentlichung nutzt [Trusted Publishing](https://learn.microsoft.com/en-us/nuget/nuget-org/trusted-publishing)
-(OIDC, kurzlebiger Key) statt eines gespeicherten API-Keys. Details und die einmalige
-Einrichtung stehen als Kommentar in `.github/workflows/release.yml`.
+Publishing uses [Trusted Publishing](https://learn.microsoft.com/en-us/nuget/nuget-org/trusted-publishing)
+(OIDC, short-lived key) rather than a stored API key. The one-time setup is documented as
+a comment at the top of `.github/workflows/release.yml`.
 
-## Lizenz
+## License
 
-MIT — siehe [LICENSE](LICENSE).
+MIT — see [LICENSE](LICENSE).

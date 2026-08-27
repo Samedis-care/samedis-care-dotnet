@@ -4,11 +4,11 @@ namespace SamedisCare.Api;
 
 /// <summary>
 /// JSON:API model for /api/{version}/{tenant_scope}/issues.
-/// Named after the public Samedis term
-/// is "issue" — and we only ever deal with `issue_type=maintenance` here.
+/// "Issue" is the public Samedis term; this model only ever deals with
+/// `issue_type=maintenance`.
 ///
-/// Note: this is the wire-level model. The mapping from A3_FINISHED_TEST → these
-/// attributes lives in the consuming tool, not in this wire-level model.
+/// Note: this is the wire-level model. Mapping domain data onto these attributes
+/// is the job of the consuming tool.
 /// </summary>
 public class Issues
 {
@@ -31,11 +31,11 @@ public class Issues
         [JsonProperty("due_on")] public string? DueOn { get; set; }
 
         /// <summary>
-        /// (nur bei issue_type=maintenance) Die zum Zeitpunkt der Vorgangs-Erstellung aus dem
-        /// Inventar gecachten Service-Intervalle. Betrag (<see cref="ServiceInterval.Value"/>) plus
-        /// Einheit (<see cref="ServiceInterval.Unit"/>: day/week/month/year, Default month). Wird
-        /// über IntervalConversion in Monate umgerechnet, weil manche Zielsysteme Intervalle nur in
-        /// Monaten führt. Quelle: samedis-public.yaml, Schema with_service_intervals.
+        /// (only for issue_type=maintenance) The service intervals cached from the inventory
+        /// at the time the issue was created. Amount (<see cref="ServiceInterval.Value"/>) plus
+        /// unit (<see cref="ServiceInterval.Unit"/>: day/week/month/year, default month).
+        /// Convert to months where the target system only tracks months.
+        /// Source: samedis-public.yaml, schema with_service_intervals.
         /// </summary>
         [JsonProperty("with_service_intervals")] public List<ServiceInterval>? WithServiceIntervals { get; set; }
 
@@ -57,22 +57,22 @@ public class Issues
     }
 
     /// <summary>
-    /// Ein Eintrag aus with_service_intervals (Schema in samedis-public.yaml). Ein Vorgang kann
-    /// mehrere haben (z. B. maintenance + inspection); die Auswahl des passenden Eintrags macht
-    /// das konsumierende Tool (bevorzugt category=maintenance, Feinabgleich über label/services).
+    /// One entry from with_service_intervals (schema in samedis-public.yaml). An issue can
+    /// have several (e.g. maintenance + inspection); picking the right one is the job of
+    /// the consuming tool (prefer category=maintenance, then match on label/services).
     /// </summary>
     public class ServiceInterval
     {
-        /// <summary>Kategorie des Intervalls: "maintenance" oder "inspection".</summary>
+        /// <summary>Interval category: "maintenance" or "inspection".</summary>
         [JsonProperty("category")] public string? Category { get; set; }
 
-        /// <summary>Label zur Identifikation (Sprache des Haupt-Mandanten), z. B. "STK".</summary>
+        /// <summary>Identifying label, in the language of the main tenant, e.g. "STK".</summary>
         [JsonProperty("label")] public string? Label { get; set; }
 
-        /// <summary>Anzahl der Einheiten.</summary>
+        /// <summary>Number of units.</summary>
         [JsonProperty("value")] public int? Value { get; set; }
 
-        /// <summary>Einheit: day | week | month | year (Default month).</summary>
+        /// <summary>Unit: day | week | month | year (default month).</summary>
         [JsonProperty("unit")] public string? Unit { get; set; }
     }
 
@@ -98,14 +98,14 @@ public class Issues
     }
 
     /// <summary>
-    /// Wraps an attributes-dictionary into the Samedis-erwartete Request-Struktur:
+    /// Wraps an attributes dictionary into the request structure Samedis expects:
     ///   { "data": { "title": "...", "due_on": "...", ... } }
     ///
-    /// Wichtig: Samedis nutzt NICHT die strikte JSON:API-Form mit { data: { type, attributes } }.
-    /// Der Server validiert direkt auf params[:data][:title], wie ein curl mit
-    /// `-F "data[title]=..."` (multipart/form-data) das auch tut. Wenn man die Felder in
-    /// einen 'attributes'-Subkey packt, ignoriert der Server sie still und es kommt
-    /// "Title cannot be blank" / "Due on cannot be blank" zurueck — selbst wenn alles gesetzt war.
+    /// Important: Samedis does NOT use the strict JSON:API shape { data: { type, attributes } }.
+    /// The server validates directly against params[:data][:title], the same way a curl with
+    /// `-F "data[title]=..."` (multipart/form-data) does. Wrapping the fields in an
+    /// 'attributes' subkey makes the server ignore them silently, which yields
+    /// "Title cannot be blank" / "Due on cannot be blank" even when everything was set.
     /// </summary>
     public static string BuildEnvelope(IDictionary<string, object> attributes)
     {

@@ -1,34 +1,34 @@
 namespace SamedisCare.Api.Routing;
 
 /// <summary>
-/// Baut die Resource-Pfade der Samedis.care API V4 auf.
+/// Builds resource paths for the Samedis.care API V4.
 /// <para>
-/// Kapselt den einzigen strukturellen Unterschied zwischen der normalen Welt und der
-/// Enterprise-Welt ("Service-Welt"): das Pfad-Prefix. Payload (params, gridfilter, body)
-/// und Response sind für die gemeinsam unterstützten Resourcen identisch, deshalb muss
-/// ein Sync nur den Scope tauschen, nicht seine Mapping-Logik.
+/// Encapsulates the only structural difference between the normal world and the
+/// enterprise world ("service world"): the path prefix. Payload (params, gridfilter,
+/// body) and response are identical for the resources both worlds support, so a sync
+/// only has to swap the scope, never its mapping logic.
 /// </para>
 /// </summary>
 public interface ITenantScope
 {
-    /// <summary>API-Version im Pfad, z. B. <c>v4</c>.</summary>
+    /// <summary>API version used in the path, e.g. <c>v4</c>.</summary>
     string ApiVersion { get; }
 
-    /// <summary>Tenant, auf den sich der Scope bezieht.</summary>
+    /// <summary>The tenant this scope refers to.</summary>
     string TenantId { get; }
 
     /// <summary>
-    /// Client (Einrichtung) innerhalb eines Enterprise-Tenants, oder <c>null</c> wenn der
-    /// Scope nicht client-bezogen ist.
+    /// The client (facility) inside an enterprise tenant, or <c>null</c> when the scope
+    /// is not client-scoped.
     /// </summary>
     string? ClientId { get; }
 
-    /// <summary>Ob der Scope auf die Enterprise-Pfadfamilie zeigt.</summary>
+    /// <summary>Whether this scope points at the enterprise path family.</summary>
     bool IsEnterprise { get; }
 
     /// <summary>
-    /// Liefert den vollständigen Pfad für eine Resource, z. B. <c>inventories</c> oder
-    /// <c>inventories/{id}/uploads</c>. Führende Slashes im Argument werden toleriert.
+    /// Returns the full path for a resource, e.g. <c>inventories</c> or
+    /// <c>inventories/{id}/uploads</c>. Leading slashes in the argument are tolerated.
     /// </summary>
     string Resource(string resource);
 }

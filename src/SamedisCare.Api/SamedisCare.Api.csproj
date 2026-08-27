@@ -5,23 +5,23 @@
     <IsPackable>true</IsPackable>
     <PackageId>SamedisCare.Api</PackageId>
     <Title>Samedis.care API Client</Title>
-    <Description>Gemeinsame Zugriffsschicht auf die Samedis.care API V4 (Auth, HTTP, Gridfilter, Resource-Routing für normale und Enterprise-Tenants). Basis für die Tools unter samedis-care-tools.</Description>
+    <Description>Shared access layer for the Samedis.care API V4: auth, HTTP, gridfilter, and resource routing for both normal and enterprise tenants. Foundation for the tools under samedis-care-tools.</Description>
     <PackageTags>samedis;samedis-care;api-client;medical-devices</PackageTags>
     <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
 
-  <!-- XML-Dokumentation ins Paket, damit Consumer IntelliSense bekommen.
-       CS1591 (fehlender XML-Kommentar) ist vorerst unterdrückt — sobald die
-       API-Schicht vollständig dokumentiert ist, kann das NoWarn raus. -->
+  <!-- Ship XML documentation so consumers get IntelliSense.
+       CS1591 (missing XML comment) is suppressed for now — once the API layer is
+       fully documented, this NoWarn can go. -->
   <PropertyGroup>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <NoWarn>$(NoWarn);CS1591</NoWarn>
   </PropertyGroup>
 
-  <!-- Bewusst schmale Abhängigkeitsfläche: nur was die HTTP-/JSON-Schicht braucht.
-       YamlDotNet (Config) und Microsoft.Data.Sqlite (Sync-State) bleiben draußen,
-       solange die zugehörigen Dateien nicht migriert sind — sonst zieht jeder
-       Consumer Abhängigkeiten, die er nicht nutzt. -->
+  <!-- Deliberately narrow dependency surface: only what the HTTP/JSON layer needs.
+       YamlDotNet (config) and Microsoft.Data.Sqlite (sync state) stay out while the
+       corresponding files are not migrated — otherwise every consumer would pull in
+       dependencies it does not use. -->
   <ItemGroup>
     <PackageReference Include="Newtonsoft.Json" />
     <PackageReference Include="RestSharp" />

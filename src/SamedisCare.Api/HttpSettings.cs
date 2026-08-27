@@ -1,8 +1,7 @@
 namespace SamedisCare.Api;
 
 /// <summary>
-/// HTTP/Proxy settings used by Authenticate and RequestData.
-/// Connection/timeout settings for the Samedis.care API client.
+/// HTTP and proxy settings used by <see cref="Authenticate"/> and <see cref="RequestData"/>.
 /// </summary>
 public class HttpSettings
 {

@@ -6,8 +6,7 @@ namespace SamedisCare.Api;
 
 /// <summary>
 /// Authenticated GET/POST/PUT against Samedis API.
-/// File-upload helpers handle the data[document] | data[file] | data[image] fallbacks
-/// that we observed against /issues/{id}/uploads.
+/// File-upload helpers post to 'data[document]' on /issues/{id}/uploads.
 ///
 /// Adapted from Samedis-care/samedis-care-external-sync `Samedis.cs`.
 /// </summary>
@@ -105,34 +104,32 @@ public class RequestData
     }
 
     /// <summary>
-    /// POST /issues/{id}/uploads with field fallbacks: data[document] -> data[file] -> data[image].
-    /// Use this to attach a generated document (e.g. a report PDF) to an issue.
-    /// </summary>
-    /// <summary>
-    /// POST /issues/{id}/uploads — PDF-Anhang. Field-Name 'data[document]' laut Samedis API-Doc
-    /// (siehe docs/api/samedis-public.yaml v4_tenant_issue_uploads). Es gibt nur diesen einen
-    /// Field-Namen am Endpoint — fuer PDF und PNG identisch. Server validiert Multipart strikt;
-    /// 'data[file]' oder 'data[image]' liefern "File cannot be blank".
+    /// POST /issues/{id}/uploads — attach a PDF document to an issue.
+    /// The field name is 'data[document]' per the Samedis API docs
+    /// (see docs/api/samedis-public.yaml v4_tenant_issue_uploads). This is the only
+    /// field name the endpoint accepts — identical for PDF and PNG. The server validates
+    /// multipart strictly; 'data[file]' or 'data[image]' yield "File cannot be blank".
     /// </summary>
     public string PostIssueDocument(string resource, string filePath, string fileName)
         => PostIssueUpload(resource, filePath, fileName);
 
     /// <summary>
-    /// POST /issues/{id}/uploads — PNG-Wertenachweis. Identisches Verhalten wie <see cref="PostIssueDocument"/>;
-    /// Samedis nutzt am Uploads-Endpoint einheitlich 'data[document]', unabhaengig vom MIME-Type.
+    /// POST /issues/{id}/uploads — attach a PNG image. Behaves identically to
+    /// <see cref="PostIssueDocument"/>; the uploads endpoint always uses 'data[document]',
+    /// regardless of MIME type.
     /// </summary>
     public string PostIssueImage(string resource, string filePath, string fileName)
         => PostIssueUpload(resource, filePath, fileName);
 
     /// <summary>
-    /// Gemeinsamer Multipart-Upload-Pfad fuer /issues/{id}/uploads.
-    /// Field-Name ist 'data[document]', daneben 'data[name]' fuer den Anzeigename — laut
-    /// Samedis API-Doc (docs/api/samedis-public.yaml). Funktioniert fuer beide PDF und PNG;
-    /// der MIME-Type wird ueber den Content-Type des File-Parts mitgegeben.
+    /// Shared multipart upload path for /issues/{id}/uploads.
+    /// The field name is 'data[document]', alongside 'data[name]' for the display name,
+    /// per the Samedis API docs (docs/api/samedis-public.yaml). Works for both PDF and PNG;
+    /// the MIME type is supplied through the Content-Type of the file part.
     ///
-    /// WICHTIG: KEIN expliziter 'Content-Type'-Header — RestSharp setzt
-    /// 'multipart/form-data; boundary=...' automatisch korrekt. Manuelles Setzen ohne Boundary
-    /// fuehrt zu "File cannot be blank" 400.
+    /// IMPORTANT: do NOT set an explicit 'Content-Type' header — RestSharp sets
+    /// 'multipart/form-data; boundary=...' correctly on its own. Setting it manually
+    /// without a boundary results in a 400 "File cannot be blank".
     /// </summary>
     private string PostIssueUpload(string resource, string filePath, string fileName)
     {
@@ -149,9 +146,9 @@ public class RequestData
     }
 
     /// <summary>
-    /// Liefert einen MIME-Type fuer eine Datei anhand der Endung. RestSharp.AddFile akzeptiert
-    /// einen optionalen ContentType — manche Server (insb. Rails) sind beim Multipart-Parsing
-    /// strenger, wenn der File-Part keinen Content-Type hat.
+    /// Returns a MIME type for a file based on its extension. RestSharp.AddFile accepts
+    /// an optional ContentType — some servers (Rails in particular) are stricter when
+    /// parsing multipart if the file part carries no Content-Type.
     /// </summary>
     private static string GuessContentType(string filePath)
     {

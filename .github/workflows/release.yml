@@ -1,22 +1,24 @@
 name: Release
 
-# Veröffentlicht die NuGet-Pakete auf nuget.org, sobald ein Versions-Tag gepusht wird:
+# Publishes the NuGet packages to nuget.org as soon as a version tag is pushed:
 #
 #   git tag v0.1.0
 #   git push origin v0.1.0
 #
-# Authentifizierung läuft über Trusted Publishing (OIDC), NICHT über einen gespeicherten
-# API-Key. Seit 17.08.2026 sind neue nuget.org-API-Keys auf 30 Tage begrenzt und alle
-# älteren laufen am 01.11.2026 ab — ein hinterlegter Key wäre also Dauerwartung.
+# Authentication uses Trusted Publishing (OIDC), NOT a stored API key. Since
+# 2026-08-17 new nuget.org API keys are capped at 30 days and all older ones expire
+# on 2026-11-01, so a stored key would mean permanent maintenance.
 #
-# Einmalige Einrichtung auf nuget.org (User-Menü -> "Trusted Publishing"):
+# One-time setup on nuget.org (user menu -> "Trusted Publishing"):
 #   Repository Owner : Samedis-care
 #   Repository       : samedis-care-dotnet
-#   Workflow File    : release.yml        <-- nur der Dateiname, ohne .github/workflows/
-#   Environment      : (leer lassen)
+#   Workflow File    : release.yml        <-- file name only, without .github/workflows/
+#   Environment      : (leave empty — this workflow declares no GitHub environment)
+#   Glob Patterns    : SamedisCare.*
 #
-# Zusätzlich als Repository-Secret anlegen:
-#   NUGET_USER = nuget.org-Profilname (NICHT die E-Mail-Adresse)
+# Also add as a repository secret:
+#   NUGET_USER = nuget.org profile name (NOT the email address, and not the
+#                organization name — the account that owns the policy)
 
 on:
   push:
@@ -27,18 +29,18 @@ jobs:
     name: Pack & publish to nuget.org
     runs-on: ubuntu-latest
 
-    # Fork-Schutz: ein Tag in einem Fork darf nie unter unserem Paketnamen publishen.
+    # Fork protection: a tag in a fork must never publish under our package name.
     if: github.repository == 'Samedis-care/samedis-care-dotnet'
 
     permissions:
-      contents: write   # für das GitHub-Release
-      id-token: write   # für den OIDC-Token an nuget.org
+      contents: write   # for the GitHub release
+      id-token: write   # for the OIDC token sent to nuget.org
 
     steps:
       - uses: actions/checkout@v7
 
-      # Alle drei Runtimes: das Paket enthält net8.0/net9.0/net10.0, und die Tests
-      # sollen vor dem Publish gegen jedes davon gelaufen sein.
+      # All three runtimes: the package contains net8.0/net9.0/net10.0, and the tests
+      # should have run against each of them before publishing.
       - name: Setup .NET 8/9/10
         uses: actions/setup-dotnet@v5
         with:
@@ -47,8 +49,8 @@ jobs:
             9.0.x
             10.0.x
 
-      # v0.1.0 -> 0.1.0. Eine NuGet-Version darf kein "v" tragen.
-      - name: Version aus Tag ableiten
+      # v0.1.0 -> 0.1.0. A NuGet version must not carry a leading "v".
+      - name: Derive version from tag
         id: version
         run: echo "value=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
 
@@ -58,31 +60,31 @@ jobs:
       - name: Build
         run: dotnet build SamedisCare.Dotnet.sln -c Release --no-restore -p:Version=${{ steps.version.outputs.value }}
 
-      # Tests laufen auch im Release-Pfad — ein Paket, dessen Tests rot sind,
-      # soll nicht auf nuget.org landen (von dort ist es nicht mehr löschbar).
+      # Tests run on the release path too — a package whose tests are red must not end
+      # up on nuget.org, because a published version cannot be removed or reused.
       - name: Test
         run: dotnet test SamedisCare.Dotnet.sln -c Release --no-build --verbosity normal
 
       - name: Pack
         run: dotnet pack SamedisCare.Dotnet.sln -c Release --no-build -o artifacts -p:Version=${{ steps.version.outputs.value }}
 
-      # Holt einen kurzlebigen API-Key (1 Stunde, einmal verwendbar) per OIDC.
-      # Muss unmittelbar vor dem Push stehen, sonst kann der Key ablaufen.
-      - name: NuGet login (OIDC -> temporärer API-Key)
+      # Fetches a short-lived API key (1 hour, single use) via OIDC. Must sit
+      # immediately before the push, otherwise the key can expire.
+      - name: NuGet login (OIDC -> short-lived API key)
         id: login
         uses: NuGet/login@v1
         with:
           user: ${{ secrets.NUGET_USER }}
 
-      # --skip-duplicate: ein erneuter Lauf auf demselben Tag schlägt nicht hart fehl.
-      - name: Push nach nuget.org
+      # --skip-duplicate: a re-run on the same tag does not fail hard.
+      - name: Push to nuget.org
         run: |
           dotnet nuget push "artifacts/*.nupkg" \
             --api-key "${{ steps.login.outputs.NUGET_API_KEY }}" \
             --source https://api.nuget.org/v3/index.json \
             --skip-duplicate
 
-      - name: GitHub-Release anlegen
+      - name: Create GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |

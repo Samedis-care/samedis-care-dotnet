@@ -1,28 +1,28 @@
 namespace SamedisCare.Api.Routing;
 
 /// <summary>
-/// Erzeugt <see cref="ITenantScope"/>-Instanzen für die drei Pfadfamilien der API V4.
+/// Creates <see cref="ITenantScope"/> instances for the three path families of API V4.
 /// </summary>
 public static class TenantScope
 {
-    /// <summary>Standard-API-Version, wenn keine explizit angegeben wird.</summary>
+    /// <summary>Default API version used when none is given explicitly.</summary>
     public const string DefaultApiVersion = "v4";
 
     /// <summary>
-    /// Normale Welt: <c>/api/{version}/tenants/{tenantId}/{resource}</c>
+    /// Normal world: <c>/api/{version}/tenants/{tenantId}/{resource}</c>
     /// </summary>
     public static ITenantScope Standard(string tenantId, string apiVersion = DefaultApiVersion)
         => new Scope(apiVersion, tenantId, clientId: null, isEnterprise: false);
 
     /// <summary>
-    /// Enterprise, client-bezogen (Spiegel der normalen Welt, das Sync-Ziel):
+    /// Enterprise, client-scoped (the mirror of the normal world, and the sync target):
     /// <c>/api/{version}/enterprise/tenants/{tenantId}/clients/{clientId}/{resource}</c>
     /// </summary>
     public static ITenantScope Enterprise(string tenantId, string clientId, string apiVersion = DefaultApiVersion)
         => new Scope(apiVersion, tenantId, Guard(clientId, nameof(clientId)), isEnterprise: true);
 
     /// <summary>
-    /// Enterprise, einrichtungsübergreifendes Aggregat (überwiegend read-only):
+    /// Enterprise, cross-facility aggregate (mostly read-only):
     /// <c>/api/{version}/enterprise/tenants/{tenantId}/{resource}</c>
     /// </summary>
     public static ITenantScope EnterpriseTenant(string tenantId, string apiVersion = DefaultApiVersion)
@@ -30,7 +30,7 @@ public static class TenantScope
 
     private static string Guard(string value, string paramName)
         => string.IsNullOrWhiteSpace(value)
-            ? throw new ArgumentException("darf nicht leer sein", paramName)
+            ? throw new ArgumentException("must not be empty", paramName)
             : value.Trim();
 
     private sealed class Scope : ITenantScope
@@ -60,7 +60,7 @@ public static class TenantScope
         public string Resource(string resource)
         {
             if (string.IsNullOrWhiteSpace(resource))
-                throw new ArgumentException("darf nicht leer sein", nameof(resource));
+                throw new ArgumentException("must not be empty", nameof(resource));
 
             return $"{_prefix}/{resource.Trim().TrimStart('/')}";
         }

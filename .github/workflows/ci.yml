@@ -1,9 +1,9 @@
 name: CI
 
-# Baut die Library, fährt die Tests und packt die NuGet-Pakete — ohne zu veröffentlichen.
-# Das Packen läuft bewusst schon hier mit: so fallen Fehler in den Paket-Metadaten
-# (fehlende Description, kaputter README-Pfad, ungültige Version) im PR auf und nicht
-# erst beim Release, wo ein Fehlversuch eine verbrannte Versionsnummer bedeuten kann.
+# Builds the library, runs the tests and packs the NuGet packages — without publishing.
+# Packing runs here on purpose: it surfaces errors in the package metadata (missing
+# description, broken README path, invalid version) in the pull request rather than at
+# release time, where a failed attempt can mean a burned version number.
 
 on:
   pull_request:
@@ -18,8 +18,8 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      # Alle drei Runtimes, weil die Testsuite gegen jedes TFM des Pakets läuft.
-      # Ohne den 9er-Runtime würde die net9.0-Variante ungetestet ausgeliefert.
+      # All three runtimes, because the test suite runs once per target framework of
+      # the package. Without the .NET 9 runtime the net9.0 variant would ship untested.
       - name: Setup .NET 8/9/10
         uses: actions/setup-dotnet@v5
         with:
@@ -37,13 +37,12 @@ jobs:
       - name: Test
         run: dotnet test SamedisCare.Dotnet.sln -c Release --no-build --verbosity normal
 
-      # Nur ein Trockenlauf zur Validierung der Metadaten. Die Version bleibt hier
-      # auf dem Default aus Directory.Build.props — die echte Version kommt beim
-      # Release aus dem Git-Tag.
-      - name: Pack (Validierung)
+      # Dry run to validate the metadata only. The version stays at the default from
+      # Directory.Build.props here — the real version comes from the git tag on release.
+      - name: Pack (validation)
         run: dotnet pack SamedisCare.Dotnet.sln -c Release --no-build -o artifacts
 
-      - name: Upload NuGet-Pakete
+      - name: Upload NuGet packages
         uses: actions/upload-artifact@v7
         with:
           name: nupkg

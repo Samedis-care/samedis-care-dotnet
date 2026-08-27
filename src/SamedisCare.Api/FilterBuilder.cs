@@ -8,22 +8,22 @@ namespace SamedisCare.Api;
 /// <summary>
 /// Builds Samedis-style `gridfilter=...` JSON payloads, URL-encoded.
 ///
-/// API-Schema laut public.yaml und der Wiki-Doku
+/// API schema per public.yaml and the wiki documentation
 /// (https://github.com/Samedis-care/samedis-care-community/wiki/03---API-Gridfilter):
 ///
 ///   {
 ///     "&lt;field&gt;": {
-///       "filterType": "date" | "number" | "text" | "bool" | "set",   // Feld-Datentyp
-///       "type":       "equals" | "greaterThan" | "contains" | ... ,  // Vergleichsoperator
-///       // Werte je nach filterType:
-///       //   date          -> "dateFrom" (und optional "dateTo" für inRange)
-///       //   number/text/  -> "filter"   (und optional "filterTo" für inRange)
+///       "filterType": "date" | "number" | "text" | "bool" | "set",   // field data type
+///       "type":       "equals" | "greaterThan" | "contains" | ... ,  // comparison operator
+///       // values depend on filterType:
+///       //   date          -> "dateFrom" (and optionally "dateTo" for inRange)
+///       //   number/text/  -> "filter"   (and optionally "filterTo" for inRange)
 ///       //     bool/set
 ///     }
 ///   }
 ///
-/// Wichtig: `filterType` und `type` waren in einer fruehen Version dieser Klasse
-/// vertauscht; die API antwortete dann mit
+/// Important: `filterType` and `type` were swapped in an early version of this
+/// class; the API then responded with
 ///   { "msg": { "error": "gridfilter_error", "message": "Grid filter error" } }.
 ///
 /// Example:

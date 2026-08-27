@@ -1,35 +1,34 @@
 <Project>
 
-  <!-- Gemeinsame Einstellungen für alle Projekte im Repo.
-       Paket-spezifische Angaben (PackageId, Description) stehen in der jeweiligen .csproj. -->
+  <!-- Settings shared by every project in the repository.
+       Package-specific values (PackageId, Description) live in the individual .csproj. -->
 
-  <!-- Multi-Targeting: net8.0 ist der kleinste gemeinsame Nenner (alle Tools laufen
-       heute darauf), net9.0/net10.0 sind da, damit ein Tool einzeln migrieren kann,
-       ohne dass die Lib angefasst werden muss. Ein niedrigeres TFM kann NIE ein
-       höheres konsumieren — deshalb muss net8.0 im Paket bleiben, solange ein
-       Consumer darauf steht.
-       Hinweis: net8.0 und net9.0 erreichen am 10.11.2026 ihr End of Support,
-       net10.0 ist LTS bis 11/2028. -->
+  <!-- Multi-targeting: net8.0 is the lowest common denominator (every tool runs on it
+       today), net9.0/net10.0 exist so a tool can migrate on its own without the library
+       having to change. A lower target framework can NEVER consume a higher one, which
+       is why net8.0 must stay in the package for as long as a consumer is on it.
+       Note: net8.0 and net9.0 reach end of support on 2026-11-10, net10.0 is LTS
+       until 2028-11. -->
   <PropertyGroup>
     <TargetFrameworks>net8.0;net9.0;net10.0</TargetFrameworks>
     <LangVersion>12</LangVersion>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
-    <NeutralLanguage>de-DE</NeutralLanguage>
+    <NeutralLanguage>en-US</NeutralLanguage>
   </PropertyGroup>
 
   <PropertyGroup>
     <Authors>Samedis.care</Authors>
     <Company>Samedis.care</Company>
     <Copyright>Copyright (c) $([System.DateTime]::UtcNow.Year) Samedis.care</Copyright>
-    <!-- Wird beim Release aus dem Git-Tag überschrieben: -p:Version=1.2.3 -->
+    <!-- Overwritten from the git tag on release: -p:Version=1.2.3 -->
     <Version>0.1.0</Version>
   </PropertyGroup>
 
-  <!-- Standardmäßig wird nichts paketiert. Nur Projekte unter src/, die ein NuGet-Paket
-       erzeugen sollen, setzen IsPackable=true. So kann ein Testprojekt nie versehentlich
-       auf nuget.org landen. -->
+  <!-- Nothing is packable by default. Only projects under src/ that are meant to produce
+       a NuGet package set IsPackable=true, so a test project can never end up on
+       nuget.org by accident. -->
   <PropertyGroup>
     <IsPackable>false</IsPackable>
   </PropertyGroup>
@@ -41,8 +40,8 @@
     <RepositoryType>git</RepositoryType>
   </PropertyGroup>
 
-  <!-- SourceLink + Symbole: erlaubt Consumern, in den Lib-Code hineinzudebuggen.
-       SourceLink ist ab .NET 8 im SDK enthalten, es braucht kein extra Paket. -->
+  <!-- SourceLink + symbols: lets consumers step into the library code while debugging.
+       SourceLink ships with the SDK from .NET 8 on, so no extra package is needed. -->
   <PropertyGroup>
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
     <EmbedUntrackedSources>true</EmbedUntrackedSources>
@@ -50,8 +49,8 @@
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
   </PropertyGroup>
 
-  <!-- Reproduzierbare Builds nur in der CI aktivieren; lokal würde das Pfade
-       normalisieren und die Debug-Erfahrung verschlechtern. -->
+  <!-- Enable reproducible builds in CI only; locally it would normalize paths and make
+       debugging worse. -->
   <PropertyGroup Condition="'$(ContinuousIntegrationBuild)' == '' and '$(GITHUB_ACTIONS)' == 'true'">
     <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
   </PropertyGroup>
