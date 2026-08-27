@@ -1,6 +1,7 @@
 using Newtonsoft.Json;
+using SamedisCare.Api.Common;
 
-namespace SamedisCare.Api;
+namespace SamedisCare.Api.V4.Public;
 public class Staffs {
 
   // Root myDeserializedClass = JsonConvert.DeserializeObject<Root>(myJsonResponse);

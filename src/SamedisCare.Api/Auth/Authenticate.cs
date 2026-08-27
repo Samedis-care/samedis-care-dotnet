@@ -4,8 +4,10 @@ using System.Text;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using RestSharp;
+using SamedisCare.Api.Http;
+using SamedisCare.Api.Logging;
 
-namespace SamedisCare.Api;
+namespace SamedisCare.Api.Auth;
 
 /// <summary>
 /// OAuth password-grant against the Samedis identity service.

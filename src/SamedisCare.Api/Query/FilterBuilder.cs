@@ -3,7 +3,7 @@ using System.Text;
 using System.Web;
 using Newtonsoft.Json;
 
-namespace SamedisCare.Api;
+namespace SamedisCare.Api.Query;
 
 /// <summary>
 /// Builds Samedis-style `gridfilter=...` JSON payloads, URL-encoded.

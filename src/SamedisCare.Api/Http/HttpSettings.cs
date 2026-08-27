@@ -1,7 +1,7 @@
-namespace SamedisCare.Api;
+namespace SamedisCare.Api.Http;
 
 /// <summary>
-/// HTTP and proxy settings used by <see cref="Authenticate"/> and <see cref="RequestData"/>.
+/// HTTP and proxy settings used by <see cref="SamedisCare.Api.Auth.Authenticate"/> and <see cref="RequestData"/>.
 /// </summary>
 public class HttpSettings
 {

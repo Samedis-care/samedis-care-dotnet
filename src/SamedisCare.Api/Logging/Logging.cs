@@ -1,4 +1,4 @@
-namespace SamedisCare.Api;
+namespace SamedisCare.Api.Logging;
 
 /// <summary>
 /// Lightweight logging facade used by the API layer.

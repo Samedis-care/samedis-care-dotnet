@@ -1,7 +1,9 @@
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using SamedisCare.Api.Common;
+using SamedisCare.Api.Http;
 
-namespace SamedisCare.Api;
+namespace SamedisCare.Api.V4.Public;
 public class Departments
 {
 

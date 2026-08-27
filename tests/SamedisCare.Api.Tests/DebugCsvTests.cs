@@ -1,5 +1,6 @@
 using FluentAssertions;
 using Xunit;
+using SamedisCare.Api.Http;
 
 namespace SamedisCare.Api.Tests;
 

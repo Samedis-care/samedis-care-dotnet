@@ -13,17 +13,32 @@ of from copy-paste.
 | --- | --- |
 | `SamedisCare.Api` | Auth (Ident Services OAuth), HTTP, gridfilter/sort/pagination, resource routing |
 
-### What `SamedisCare.Api` covers today
+### Layout
 
-- **Transport**: `Authenticate`, `RequestData` (GET/POST/PUT, issue uploads, 429 retry), `HttpSettings`
-- **Query**: `FilterBuilder` for `gridfilter=...` payloads
-- **Routing**: `ITenantScope` / `TenantScope`
-- **Resources**: `Tenant`, `Inventories`, `Issues`, `Staffs`, `Positions`, `Departments`
-  — `Positions` and `Departments` also carry the generic `Find…Id` / `FindOrCreate…` helpers
-- **Diagnostics**: `ISyncLog` plus an optional GET dump via `RequestData.TestMode`
+Infrastructure is grouped by concern; the classes that mirror API payloads are grouped by
+API version and surface, so it stays visible which class belongs to which endpoint family
+and a future v5 can be added alongside instead of colliding.
 
-Not in the library on purpose: CSV/Excel handling, LDAP, SAP, database access, and
-per-tool config shapes. Those belong to the consuming tool.
+| Namespace | Contents |
+| --- | --- |
+| `SamedisCare.Api.Auth` | `Authenticate` — Ident Services OAuth |
+| `SamedisCare.Api.Http` | `RequestData` (GET/POST/PUT, uploads, 429 retry), `HttpSettings` |
+| `SamedisCare.Api.Query` | `FilterBuilder` for `gridfilter=...` payloads |
+| `SamedisCare.Api.Routing` | `ITenantScope`, `TenantScope` |
+| `SamedisCare.Api.Logging` | `ISyncLog`, `ConsoleSyncLog`, `FileSyncLog`, `NullSyncLog` |
+| `SamedisCare.Api.Common` | `Helper`, `Dates`, `Capability`, `ApiEnvelope` |
+| `SamedisCare.Api.V4.Public` | `Inventories`, `Issues`, `Staffs`, `Positions`, `Departments` |
+| `SamedisCare.Api.V4.Common` | `Tenant` — appears identically across several surfaces |
+
+`Positions` and `Departments` also carry the generic `Find…Id` / `FindOrCreate…` helpers.
+
+The specs the model classes are validated against live in [`doc/v4/`](doc/v4):
+`public.yaml`, `enterprise.yaml`, `internal.yaml`, `my.yaml`, `mdm.yaml`.
+
+Not in the library on purpose: CSV/Excel handling, LDAP, SAP, database access, per-tool
+config shapes, and anything that terminates the process. Those belong to the consuming
+tool — `Capability.Probe` reports whether a resource is readable, it does not decide
+whether the run should stop.
 
 ## Installation
 

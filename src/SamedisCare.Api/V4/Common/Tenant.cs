@@ -1,7 +1,9 @@
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using SamedisCare.Api.Http;
+using SamedisCare.Api.Logging;
 
-namespace SamedisCare.Api;
+namespace SamedisCare.Api.V4.Common;
 
 /// <summary>
 /// GET /api/{api_version}/user/tenants/{tenant_id}

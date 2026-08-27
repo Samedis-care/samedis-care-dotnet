@@ -1,6 +1,7 @@
 using Newtonsoft.Json;
+using SamedisCare.Api.Common;
 
-namespace SamedisCare.Api;
+namespace SamedisCare.Api.V4.Public;
 
 /// <summary>
 /// JSON:API model for /api/{version}/{tenant_scope}/inventories.
@@ -14,7 +15,6 @@ public class Inventories
         [JsonProperty("id")] public string? Id { get; set; }
         [JsonProperty("tenant_id")] public string? TenantId { get; set; }
         [JsonProperty("device_number")] public string? DeviceNumber { get; set; }
-        [JsonProperty("inventory_number")] public string? InventoryNumber { get; set; }
         [JsonProperty("serial_number")] public string? SerialNumber { get; set; }
 
         [JsonProperty("device_model_title")] public string? DeviceModelTitle { get; set; }
@@ -26,7 +26,6 @@ public class Inventories
 
         [JsonProperty("device_location_id")] public string? DeviceLocationId { get; set; }
         [JsonProperty("device_location_title")] public string? DeviceLocationTitle { get; set; }
-        [JsonProperty("source_location_id")] public string? SourceLocationId { get; set; }
 
         [JsonProperty("department_id")] public string? DepartmentId { get; set; }
         [JsonProperty("department_title")] public string? DepartmentTitle { get; set; }

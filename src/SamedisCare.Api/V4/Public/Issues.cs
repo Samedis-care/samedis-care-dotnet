@@ -1,6 +1,7 @@
 using Newtonsoft.Json;
+using SamedisCare.Api.Common;
 
-namespace SamedisCare.Api;
+namespace SamedisCare.Api.V4.Public;
 
 /// <summary>
 /// JSON:API model for /api/{version}/{tenant_scope}/issues.
@@ -28,7 +29,6 @@ public class Issues
 
         [JsonProperty("date")] public string? Date { get; set; }
         [JsonProperty("done_at")] public string? DoneAt { get; set; }
-        [JsonProperty("due_on")] public string? DueOn { get; set; }
 
         /// <summary>
         /// (only for issue_type=maintenance) The service intervals cached from the inventory
@@ -39,7 +39,6 @@ public class Issues
         /// </summary>
         [JsonProperty("with_service_intervals")] public List<ServiceInterval>? WithServiceIntervals { get; set; }
 
-        [JsonProperty("maintenance_type")] public string? MaintenanceType { get; set; }
         [JsonProperty("maintenance_performer")] public string? MaintenancePerformer { get; set; }
         [JsonProperty("maintenance_passed")] public bool? MaintenancePassed { get; set; }
         [JsonProperty("services")] public List<string>? Services { get; set; }
@@ -99,7 +98,7 @@ public class Issues
 
     /// <summary>
     /// Wraps an attributes dictionary into the request structure Samedis expects:
-    ///   { "data": { "title": "...", "due_on": "...", ... } }
+    ///   { "data": { "title": "...", "date": "...", ... } }
     ///
     /// Important: Samedis does NOT use the strict JSON:API shape { data: { type, attributes } }.
     /// The server validates directly against params[:data][:title], the same way a curl with

@@ -3,7 +3,7 @@ using System.Globalization;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
-namespace SamedisCare.Api;
+namespace SamedisCare.Api.Common;
 
 /// <summary>
 /// Small grab-bag of helpers shared by the Samedis.care API layer.

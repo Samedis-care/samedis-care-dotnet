@@ -1,8 +1,9 @@
 using System.IO;
 using System.Net;
 using RestSharp;
+using SamedisCare.Api.Logging;
 
-namespace SamedisCare.Api;
+namespace SamedisCare.Api.Http;
 
 /// <summary>
 /// Authenticated GET/POST/PUT against Samedis API.
