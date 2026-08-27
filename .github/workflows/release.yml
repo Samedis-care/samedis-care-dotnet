@@ -1,0 +1,92 @@
+name: Release
+
+# Veröffentlicht die NuGet-Pakete auf nuget.org, sobald ein Versions-Tag gepusht wird:
+#
+#   git tag v0.1.0
+#   git push origin v0.1.0
+#
+# Authentifizierung läuft über Trusted Publishing (OIDC), NICHT über einen gespeicherten
+# API-Key. Seit 17.08.2026 sind neue nuget.org-API-Keys auf 30 Tage begrenzt und alle
+# älteren laufen am 01.11.2026 ab — ein hinterlegter Key wäre also Dauerwartung.
+#
+# Einmalige Einrichtung auf nuget.org (User-Menü -> "Trusted Publishing"):
+#   Repository Owner : Samedis-care
+#   Repository       : samedis-care-dotnet
+#   Workflow File    : release.yml        <-- nur der Dateiname, ohne .github/workflows/
+#   Environment      : (leer lassen)
+#
+# Zusätzlich als Repository-Secret anlegen:
+#   NUGET_USER = nuget.org-Profilname (NICHT die E-Mail-Adresse)
+
+on:
+  push:
+    tags: [ 'v*' ]
+
+jobs:
+  publish:
+    name: Pack & publish to nuget.org
+    runs-on: ubuntu-latest
+
+    # Fork-Schutz: ein Tag in einem Fork darf nie unter unserem Paketnamen publishen.
+    if: github.repository == 'Samedis-care/samedis-care-dotnet'
+
+    permissions:
+      contents: write   # für das GitHub-Release
+      id-token: write   # für den OIDC-Token an nuget.org
+
+    steps:
+      - uses: actions/checkout@v7
+
+      # Alle drei Runtimes: das Paket enthält net8.0/net9.0/net10.0, und die Tests
+      # sollen vor dem Publish gegen jedes davon gelaufen sein.
+      - name: Setup .NET 8/9/10
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: |
+            8.0.x
+            9.0.x
+            10.0.x
+
+      # v0.1.0 -> 0.1.0. Eine NuGet-Version darf kein "v" tragen.
+      - name: Version aus Tag ableiten
+        id: version
+        run: echo "value=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Restore
+        run: dotnet restore SamedisCare.Dotnet.sln
+
+      - name: Build
+        run: dotnet build SamedisCare.Dotnet.sln -c Release --no-restore -p:Version=${{ steps.version.outputs.value }}
+
+      # Tests laufen auch im Release-Pfad — ein Paket, dessen Tests rot sind,
+      # soll nicht auf nuget.org landen (von dort ist es nicht mehr löschbar).
+      - name: Test
+        run: dotnet test SamedisCare.Dotnet.sln -c Release --no-build --verbosity normal
+
+      - name: Pack
+        run: dotnet pack SamedisCare.Dotnet.sln -c Release --no-build -o artifacts -p:Version=${{ steps.version.outputs.value }}
+
+      # Holt einen kurzlebigen API-Key (1 Stunde, einmal verwendbar) per OIDC.
+      # Muss unmittelbar vor dem Push stehen, sonst kann der Key ablaufen.
+      - name: NuGet login (OIDC -> temporärer API-Key)
+        id: login
+        uses: NuGet/login@v1
+        with:
+          user: ${{ secrets.NUGET_USER }}
+
+      # --skip-duplicate: ein erneuter Lauf auf demselben Tag schlägt nicht hart fehl.
+      - name: Push nach nuget.org
+        run: |
+          dotnet nuget push "artifacts/*.nupkg" \
+            --api-key "${{ steps.login.outputs.NUGET_API_KEY }}" \
+            --source https://api.nuget.org/v3/index.json \
+            --skip-duplicate
+
+      - name: GitHub-Release anlegen
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" \
+            --title "SamedisCare.Api ${GITHUB_REF_NAME}" \
+            --generate-notes \
+            artifacts/*.nupkg

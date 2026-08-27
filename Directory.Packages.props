@@ -1,0 +1,32 @@
+<Project>
+
+  <!-- Central Package Management: alle Paketversionen stehen ausschließlich hier,
+       die .csproj-Dateien referenzieren nur noch <PackageReference Include="..." />
+       ohne Version. Das war in den Tool-Repos der Hauptgrund für Version-Drift
+       (YamlDotNet 13.7.1 / 15.1.6 / 16.3.0, RestSharp 112.0.0 / 112.1.0, ...). -->
+
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    <CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>
+  </PropertyGroup>
+
+  <!-- Laufzeit-Abhängigkeiten der Library.
+       Bewusst die höchste in den Tool-Repos bereits verwendete Version, damit die
+       Consumer beim Umstieg nur nach oben gehen müssen und nie nach unten. -->
+  <ItemGroup>
+    <PackageVersion Include="Newtonsoft.Json" Version="13.0.4" />
+    <PackageVersion Include="RestSharp" Version="112.1.0" />
+    <PackageVersion Include="YamlDotNet" Version="16.3.0" />
+  </ItemGroup>
+
+  <!-- Test-Abhängigkeiten.
+       FluentAssertions bleibt bewusst auf 6.12.1 — ab 7.0 gilt eine kommerzielle
+       Lizenz, die für ein MIT-Repo nicht passt. Nicht ohne Prüfung hochziehen. -->
+  <ItemGroup>
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
+    <PackageVersion Include="xunit" Version="2.9.2" />
+    <PackageVersion Include="xunit.runner.visualstudio" Version="2.8.2" />
+    <PackageVersion Include="FluentAssertions" Version="6.12.1" />
+  </ItemGroup>
+
+</Project>

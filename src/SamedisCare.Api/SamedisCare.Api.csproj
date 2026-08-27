@@ -1,0 +1,34 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>SamedisCare.Api</RootNamespace>
+    <IsPackable>true</IsPackable>
+    <PackageId>SamedisCare.Api</PackageId>
+    <Title>Samedis.care API Client</Title>
+    <Description>Gemeinsame Zugriffsschicht auf die Samedis.care API V4 (Auth, HTTP, Gridfilter, Resource-Routing für normale und Enterprise-Tenants). Basis für die Tools unter samedis-care-tools.</Description>
+    <PackageTags>samedis;samedis-care;api-client;medical-devices</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+  </PropertyGroup>
+
+  <!-- XML-Dokumentation ins Paket, damit Consumer IntelliSense bekommen.
+       CS1591 (fehlender XML-Kommentar) ist vorerst unterdrückt — sobald die
+       API-Schicht vollständig dokumentiert ist, kann das NoWarn raus. -->
+  <PropertyGroup>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+  </PropertyGroup>
+
+  <!-- Bewusst schmale Abhängigkeitsfläche: nur was die HTTP-/JSON-Schicht braucht.
+       YamlDotNet (Config) und Microsoft.Data.Sqlite (Sync-State) bleiben draußen,
+       solange die zugehörigen Dateien nicht migriert sind — sonst zieht jeder
+       Consumer Abhängigkeiten, die er nicht nutzt. -->
+  <ItemGroup>
+    <PackageReference Include="Newtonsoft.Json" />
+    <PackageReference Include="RestSharp" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="$(MSBuildThisFileDirectory)../../README.md" Pack="true" PackagePath="/" />
+  </ItemGroup>
+
+</Project>

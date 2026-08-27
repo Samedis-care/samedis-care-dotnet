@@ -1,0 +1,51 @@
+name: CI
+
+# Baut die Library, fährt die Tests und packt die NuGet-Pakete — ohne zu veröffentlichen.
+# Das Packen läuft bewusst schon hier mit: so fallen Fehler in den Paket-Metadaten
+# (fehlende Description, kaputter README-Pfad, ungültige Version) im PR auf und nicht
+# erst beim Release, wo ein Fehlversuch eine verbrannte Versionsnummer bedeuten kann.
+
+on:
+  pull_request:
+    branches: [ main ]
+  push:
+    branches: [ main, develop ]
+
+jobs:
+  build:
+    name: Build, Test & Pack
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      # Alle drei Runtimes, weil die Testsuite gegen jedes TFM des Pakets läuft.
+      # Ohne den 9er-Runtime würde die net9.0-Variante ungetestet ausgeliefert.
+      - name: Setup .NET 8/9/10
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: |
+            8.0.x
+            9.0.x
+            10.0.x
+
+      - name: Restore
+        run: dotnet restore SamedisCare.Dotnet.sln
+
+      - name: Build
+        run: dotnet build SamedisCare.Dotnet.sln -c Release --no-restore
+
+      - name: Test
+        run: dotnet test SamedisCare.Dotnet.sln -c Release --no-build --verbosity normal
+
+      # Nur ein Trockenlauf zur Validierung der Metadaten. Die Version bleibt hier
+      # auf dem Default aus Directory.Build.props — die echte Version kommt beim
+      # Release aus dem Git-Tag.
+      - name: Pack (Validierung)
+        run: dotnet pack SamedisCare.Dotnet.sln -c Release --no-build -o artifacts
+
+      - name: Upload NuGet-Pakete
+        uses: actions/upload-artifact@v7
+        with:
+          name: nupkg
+          path: artifacts/*
+          if-no-files-found: error
