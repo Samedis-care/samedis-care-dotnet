@@ -27,6 +27,14 @@ public interface ITenantScope
     bool IsEnterprise { get; }
 
     /// <summary>
+    /// The scope's path prefix without a resource, e.g.
+    /// <c>/api/v4/tenants/{tenantId}</c>. Use this for the tenant record itself;
+    /// <see cref="Resource"/> rejects an empty resource on purpose, so that a missing
+    /// resource name cannot silently produce this path.
+    /// </summary>
+    string Root { get; }
+
+    /// <summary>
     /// Returns the full path for a resource, e.g. <c>inventories</c> or
     /// <c>inventories/{id}/uploads</c>. Leading slashes in the argument are tolerated.
     /// </summary>

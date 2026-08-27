@@ -56,6 +56,7 @@ public static class TenantScope
         public string TenantId { get; }
         public string? ClientId { get; }
         public bool IsEnterprise { get; }
+        public string Root => _prefix;
 
         public string Resource(string resource)
         {
