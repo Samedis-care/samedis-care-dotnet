@@ -98,6 +98,34 @@ tests execute once per target framework.
 Package versions are managed centrally in `Directory.Packages.props` — the `.csproj`
 files deliberately carry no versions.
 
+### Testing a change in a consuming tool before publishing
+
+A consumer can resolve the package from a local folder feed, so a library change can be
+tried out end to end without merging or publishing anything. The consumer's `.csproj`
+stays exactly as it will be committed, which means what you test is what ships.
+
+```bash
+# 1. build the package into a local feed
+dotnet pack SamedisCare.Dotnet.sln -c Release -p:Version=0.2.0-rc.2 -o ~/.nuget/samedis-local
+
+# 2. NuGet caches by version, so drop the cached copy before re-restoring
+rm -rf ~/.nuget/packages/samediscare.api/0.2.0-rc.2
+
+# 3. in the consuming tool
+dotnet restore --force && dotnet build -c Release
+```
+
+The consumer needs a `nuget.config` pointing at `~/.nuget/samedis-local`. Keep that file
+**out of version control** — CI and other developers resolve from nuget.org and would fail
+on a path that only exists on one machine.
+
+Step 2 is easy to forget: without it a repacked package of the same version is ignored and
+the build keeps using the stale one. Alternatively use a `ProjectReference` for a faster
+loop — that avoids packing and cache clearing entirely and lets you debug into the library
+source, but it changes the consumer's `.csproj`, so it must never be committed.
+
+Publish only when the consumer's CI needs to go green.
+
 ## Documentation language
 
 All documentation in this repository is written in **English**: README, XML doc comments,
