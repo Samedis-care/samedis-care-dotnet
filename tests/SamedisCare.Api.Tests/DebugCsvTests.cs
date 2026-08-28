@@ -67,3 +67,29 @@ public class DebugCsvTests : IDisposable
     public void EscapeCsv_quotes_only_what_needs_quoting(string input, string expected)
         => RequestData.EscapeCsv(input).Should().Be(expected);
 }
+
+// LastContent and PostDocument were added for sync-trainings: it reads meta.msg out of a
+// failed response after the call, and it uploads to a trainings endpoint rather than an
+// issue one. Pinned here so the aliases cannot drift apart.
+public class RequestDataSurfaceTests
+{
+    [Fact]
+    public void PostDocument_and_the_issue_aliases_are_the_same_operation()
+    {
+        var t = typeof(SamedisCare.Api.Http.RequestData);
+        var names = new[] { "PostDocument", "PostIssueDocument", "PostIssueImage" };
+
+        foreach (var name in names)
+        {
+            var m = t.GetMethod(name);
+            m.Should().NotBeNull($"{name} must exist");
+            m!.GetParameters().Select(p => p.ParameterType).Should().Equal(
+                new[] { typeof(string), typeof(string), typeof(string) });
+        }
+    }
+
+    [Fact]
+    public void LastContent_is_exposed_for_after_the_fact_error_parsing()
+        => typeof(SamedisCare.Api.Http.RequestData).GetField("LastContent")
+             .Should().NotBeNull();
+}

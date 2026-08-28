@@ -19,6 +19,12 @@ public class RequestData
     public string LastResponseStatus = string.Empty;
 
     /// <summary>
+    /// Body of the last response. Kept because callers need to read <c>meta.msg</c> out of
+    /// a failed call after the fact, without having held on to the return value.
+    /// </summary>
+    public string LastContent = string.Empty;
+
+    /// <summary>
     /// Dry-run marker for the consuming tool. This class suppresses no request on its
     /// own — the only behaviour it changes here is the diagnostic GET dump, which is
     /// written when TestMode is set AND the log level is debug (<see cref="ISyncLog.Level"/> &gt;= 2).
@@ -139,6 +145,15 @@ public class RequestData
         => PostIssueUpload(resource, filePath, fileName);
 
     /// <summary>
+    /// Uploads a file to any uploads endpoint. Same request as
+    /// <see cref="PostIssueDocument"/> — the operation is not issue-specific, and the
+    /// trainings endpoints use it too, so this is the name to prefer. The
+    /// <c>PostIssue*</c> methods remain as aliases for existing callers.
+    /// </summary>
+    public string PostDocument(string resource, string filePath, string fileName)
+        => PostIssueUpload(resource, filePath, fileName);
+
+    /// <summary>
     /// Shared multipart upload path for /issues/{id}/uploads.
     /// The field name is 'data[document]', alongside 'data[name]' for the display name,
     /// per the Samedis API docs (docs/api/samedis-public.yaml). Works for both PDF and PNG;
@@ -187,6 +202,7 @@ public class RequestData
         StatusCode = (int)Status;
         LastResponseStatus = response.ResponseStatus.ToString();
         LastError = response.ErrorMessage ?? response.ErrorException?.Message ?? string.Empty;
+        LastContent = response.Content ?? string.Empty;
     }
 
     /// <summary>Honour Retry-After on 429 once, then bubble up the response.</summary>
