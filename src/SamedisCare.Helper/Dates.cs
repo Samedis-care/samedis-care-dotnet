@@ -1,6 +1,6 @@
 using System.Globalization;
 
-namespace SamedisCare.Api.Common;
+namespace SamedisCare.Helper;
 
 /// <summary>
 /// One date parser for the whole tool family. It replaces three separate
@@ -68,6 +68,21 @@ public static class Dates
             return true;
 
         return DateTime.TryParse(text, cult, fallbackStyles ?? styles, out date);
+    }
+
+    /// <summary>
+    /// Returns the first parseable value formatted as <c>yyyy-MM-dd</c>, or null when none
+    /// of them parses. Handy for a source field that may arrive under several column names
+    /// or in several formats, where the API wants a plain ISO date.
+    /// </summary>
+    public static string? ToIsoDate(params string?[] values)
+    {
+        foreach (var value in values)
+        {
+            if (TryParse(value, out var parsed))
+                return parsed.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+        }
+        return null;
     }
 
     /// <summary>

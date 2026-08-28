@@ -1,9 +1,9 @@
 using System.Globalization;
 using FluentAssertions;
-using SamedisCare.Api.Common;
+using SamedisCare.Helper;
 using Xunit;
 
-namespace SamedisCare.Api.Tests.Common;
+namespace SamedisCare.Helper.Tests;
 
 // Dates.TryParse consolidates three parsers that had drifted apart. These tests pin the
 // behaviour each of them had, so the consolidation cannot silently change a call site.

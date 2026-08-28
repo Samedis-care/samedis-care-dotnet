@@ -1,4 +1,4 @@
-namespace SamedisCare.Api.Logging;
+namespace SamedisCare.Helper.Logging;
 
 /// <summary>
 /// Where a <see cref="FileSyncLog"/> writes. The numeric values match the

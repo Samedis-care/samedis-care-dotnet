@@ -14,6 +14,7 @@
        Deliberately the highest version already in use across the tool repos, so
        consumers only ever have to move up on migration, never down. -->
   <ItemGroup>
+    <PackageVersion Include="CsvHelper" Version="33.1.0" />
     <PackageVersion Include="Newtonsoft.Json" Version="13.0.4" />
     <PackageVersion Include="RestSharp" Version="112.1.0" />
     <PackageVersion Include="YamlDotNet" Version="16.3.0" />

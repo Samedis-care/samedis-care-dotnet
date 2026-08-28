@@ -162,7 +162,7 @@ public class Positions
   public class Root
   {
     [JsonProperty("data")]
-    [JsonConverter(typeof(Helper.SingleOrArrayConverter<Data>))]
+    [JsonConverter(typeof(JsonApi.SingleOrArrayConverter<Data>))]
     public List<Data>? Data { get; set; }
 
     [JsonProperty("meta")]

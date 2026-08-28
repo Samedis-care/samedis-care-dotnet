@@ -1,7 +1,7 @@
 using System.IO;
 using System.Net;
 using RestSharp;
-using SamedisCare.Api.Logging;
+using SamedisCare.Helper.Logging;
 
 namespace SamedisCare.Api.Http;
 

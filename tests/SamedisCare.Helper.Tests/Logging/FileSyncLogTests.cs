@@ -1,8 +1,8 @@
 using FluentAssertions;
-using SamedisCare.Api.Logging;
+using SamedisCare.Helper.Logging;
 using Xunit;
 
-namespace SamedisCare.Api.Tests.Logging;
+namespace SamedisCare.Helper.Tests.Logging;
 
 // FileSyncLog consolidates the per-tool Helper.Message copies. Level gating and the log
 // mode are the parts a tool's config.yml drives, so those are what these tests pin.

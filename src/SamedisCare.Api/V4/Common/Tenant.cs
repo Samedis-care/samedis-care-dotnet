@@ -1,7 +1,7 @@
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using SamedisCare.Api.Http;
-using SamedisCare.Api.Logging;
+using SamedisCare.Helper.Logging;
 
 namespace SamedisCare.Api.V4.Common;
 

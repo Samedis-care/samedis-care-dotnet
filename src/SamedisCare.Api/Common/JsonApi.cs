@@ -1,17 +1,24 @@
-using System.Data;
-using System.Globalization;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
 namespace SamedisCare.Api.Common;
 
 /// <summary>
-/// Small grab-bag of helpers shared by the Samedis.care API layer.
-/// Deliberately limited to what the API layer needs — no file or CSV utilities.
+/// Helpers for the JSON:API envelope Samedis returns.
+/// <para>
+/// Renamed from <c>Helper</c>: with a <c>SamedisCare.Helper</c> namespace in the family,
+/// the identifier <c>Helper</c> resolved to that namespace instead of this class. The
+/// generic parsing and DataRow helpers that used to sit here moved to
+/// <c>SamedisCare.Helper.Text.Strings</c> and <c>SamedisCare.Helper.Data.Rows</c>, since
+/// they were never API concerns.
+/// </para>
 /// </summary>
-public static class Helper
+public static class JsonApi
 {
-    /// <summary>Extract `data[0].id` (or `data.id` if data is a single object) from a JSON:API response.</summary>
+    /// <summary>
+    /// Extracts <c>data[0].id</c>, or <c>data.id</c> when data is a single object. Returns
+    /// null for an empty body or one that is not the expected shape; never throws.
+    /// </summary>
     public static string? ExtractDataId(string? json)
     {
         if (string.IsNullOrWhiteSpace(json)) return null;
@@ -24,37 +31,10 @@ public static class Helper
                 return arr.FirstOrDefault()?["id"]?.ToString();
             return data["id"]?.ToString();
         }
-        catch { return null; }
+        catch (JsonException) { return null; }
     }
 
-    public static bool TryParseInt(string? value, out int parsed)
-        => int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out parsed);
-
-    /// <summary>
-    /// Boolean parser that accepts true/false, yes/no, ja/nein, 1/0 — same set as the reference.
-    /// </summary>
-    public static bool TryParseBool(string? value, out bool parsed)
-    {
-        parsed = false;
-        if (string.IsNullOrWhiteSpace(value)) return false;
-        switch (value.Trim().ToLowerInvariant())
-        {
-            case "true": case "yes": case "ja": case "1":
-                parsed = true;  return true;
-            case "false": case "no": case "nein": case "0":
-                parsed = false; return true;
-            default:
-                return false;
-        }
-    }
-
-    public static string GetRowValue(DataRow row, string column)
-    {
-        if (!row.Table.Columns.Contains(column)) return string.Empty;
-        var v = row[column];
-        return v == null || v == DBNull.Value ? string.Empty : (v.ToString() ?? string.Empty);
-    }
-
+    /// <summary>Adds an attribute only when the value is not null or whitespace.</summary>
     public static void AddStringAttribute(IDictionary<string, object> attributes, string key, string? value)
     {
         if (string.IsNullOrWhiteSpace(value)) return;
@@ -62,8 +42,8 @@ public static class Helper
     }
 
     /// <summary>
-    /// Newtonsoft converter that accepts both `data: {...}` (single) and `data: [...]` (array)
-    /// — JSON:API responses sometimes return one or many.
+    /// Newtonsoft converter that accepts both <c>data: {...}</c> and <c>data: [...]</c> —
+    /// JSON:API returns one or many depending on the endpoint.
     /// </summary>
     public class SingleOrArrayConverter<T> : JsonConverter
     {
