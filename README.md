@@ -27,10 +27,13 @@ and a future v5 can be added alongside instead of colliding.
 | `SamedisCare.Api.Routing` | `ITenantScope`, `TenantScope` |
 | `SamedisCare.Api.Logging` | `ISyncLog`, `ConsoleSyncLog`, `FileSyncLog`, `NullSyncLog` |
 | `SamedisCare.Api.Common` | `Helper`, `Dates`, `Capability`, `ApiEnvelope` |
-| `SamedisCare.Api.V4.Public` | `Inventories`, `Issues`, `Staffs`, `Positions`, `Departments` |
+| `SamedisCare.Api.V4.Public` | `Inventories`, `Issues`, `Staffs`, `Positions`, `Departments`, `DepartmentInfo` |
 | `SamedisCare.Api.V4.Common` | `Tenant` — appears identically across several surfaces |
 
 `Positions` and `Departments` also carry the generic `Find…Id` / `FindOrCreate…` helpers.
+`DepartmentInfo` bundles the title, code and cost centre a department upsert needs. It holds
+no knowledge of where those values came from, so a CSV, LDAP or database source can all fill
+it — only the code that *reads* a particular import format belongs in the consuming tool.
 
 The specs the model classes are validated against live in [`doc/v4/`](doc/v4):
 `public.yaml`, `enterprise.yaml`, `internal.yaml`, `my.yaml`, `mdm.yaml`.

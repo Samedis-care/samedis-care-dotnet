@@ -29,6 +29,13 @@ public class Departments
     return null;
   }
 
+  /// <summary>
+  /// Overload taking a <see cref="DepartmentInfo"/>, so callers that already collected
+  /// title, code and cost centre together do not have to unpack them at the call site.
+  /// </summary>
+  public static string? FindOrCreateDepartment(RequestData client, string departmentsResource, DepartmentInfo department)
+    => FindOrCreateDepartment(client, departmentsResource, department.Title, department.Code, department.CostCenter);
+
   public static string? FindOrCreateDepartment(RequestData client, string departmentsResource, string title, string? code, string? costCenter)
   {
     // lookup
