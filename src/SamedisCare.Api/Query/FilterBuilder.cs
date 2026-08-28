@@ -60,7 +60,13 @@ public class FilterBuilder
         Number,
         Date,
         Bool,
-        Set
+        Set,
+
+        /// <summary>
+        /// A record id. The API wants <c>object_id</c> as the field type here, not
+        /// <c>text</c> — filtering an id as text does not match.
+        /// </summary>
+        ObjectId
     }
 
     private readonly Dictionary<string, object> _filters = new();
@@ -100,6 +106,7 @@ public class FilterBuilder
         Type.Date   => "date",
         Type.Bool   => "bool",
         Type.Set    => "set",
+        Type.ObjectId => "object_id",
         // No silent fallback, same reason as MapFilter.
         _ => throw new ArgumentOutOfRangeException(nameof(t), t, "Unmapped value type")
     };

@@ -90,3 +90,41 @@ public class FilterBuilderTests
         b.Get().Should().Be("{}");
     }
 }
+
+// staff-sync filtered staff by id with filterType "object_id" via a hand-built template
+// string. Text would not have matched, so the type has to be expressible here.
+public class FilterBuilderObjectIdTests
+{
+    private static Newtonsoft.Json.Linq.JObject Decode(string encoded)
+        => Newtonsoft.Json.Linq.JObject.Parse(System.Web.HttpUtility.UrlDecode(encoded)!);
+
+    [Fact]
+    public void ObjectId_maps_to_the_field_type_the_api_expects()
+    {
+        var b = new FilterBuilder();
+        b.Add("id", FilterBuilder.FilterType.Equals, FilterBuilder.Type.ObjectId,
+              "63f5c0491b57cc000df2b2c7");
+
+        var f = Decode(b.Get())["id"]!;
+        f["filterType"]!.ToString().Should().Be("object_id");
+        f["filter"]!.ToString().Should().Be("63f5c0491b57cc000df2b2c7");
+    }
+
+    [Fact]
+    public void An_unmapped_value_type_throws_instead_of_falling_back_to_text()
+    {
+        var b = new FilterBuilder();
+        var act = () => b.Add("x", FilterBuilder.FilterType.Equals, (FilterBuilder.Type)99, "v");
+
+        act.Should().Throw<ArgumentOutOfRangeException>();
+    }
+
+    [Fact]
+    public void An_unmapped_filter_type_throws_too()
+    {
+        var b = new FilterBuilder();
+        var act = () => b.Add("x", (FilterBuilder.FilterType)99, FilterBuilder.Type.Text, "v");
+
+        act.Should().Throw<ArgumentOutOfRangeException>();
+    }
+}
