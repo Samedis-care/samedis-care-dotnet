@@ -8,6 +8,17 @@ namespace SamedisCare.Helper.Data;
 /// </summary>
 public class DbConnectionSettings
 {
+    /// <summary>
+    /// Which provider family these settings describe.
+    /// <para>
+    /// Named <c>DatabaseType</c> so a consumer's <c>config.yml</c> keeps its existing
+    /// <c>database_type:</c> key when the tool's config class inherits from this. YAML enum
+    /// parsing is case-insensitive, so an existing <c>SQLite</c> value still maps onto
+    /// <see cref="DbKind.Sqlite"/>.
+    /// </para>
+    /// </summary>
+    public DbKind DatabaseType { get; set; }
+
     /// <summary>Server host, or the file path for SQLite.</summary>
     public string Server { get; set; } = string.Empty;
 
@@ -48,7 +59,7 @@ public enum DbKind
 public static class Database
 {
     /// <summary>
-    /// Builds a connection string for <paramref name="kind"/>.
+    /// Builds a connection string for the settings' <see cref="DbConnectionSettings.DatabaseType"/>.
     /// <para>
     /// Uses <see cref="DbConnectionStringBuilder"/> rather than string interpolation, which
     /// is what the previous copies did. Interpolation breaks on a password containing a
@@ -56,11 +67,11 @@ public static class Database
     /// escapes each value.
     /// </para>
     /// </summary>
-    public static string BuildConnectionString(DbKind kind, DbConnectionSettings settings)
+    public static string BuildConnectionString(DbConnectionSettings settings)
     {
         var b = new DbConnectionStringBuilder();
 
-        switch (kind)
+        switch (settings.DatabaseType)
         {
             case DbKind.SqlServer:
                 b["Data Source"] = string.IsNullOrEmpty(settings.Port)
@@ -86,7 +97,7 @@ public static class Database
                 break;
 
             default:
-                throw new NotSupportedException($"Unsupported database kind: {kind}");
+                throw new NotSupportedException($"Unsupported database kind: {settings.DatabaseType}");
         }
 
         return b.ConnectionString;
@@ -99,6 +110,8 @@ public static class Database
     /// The provider factory, e.g. <c>SqlClientFactory.Instance</c>. Supplied by the caller
     /// so this package needs no driver reference.
     /// </param>
+    /// <param name="connectionString">Built by <see cref="BuildConnectionString"/>.</param>
+    /// <param name="sql">The query to run.</param>
     public static DataTable Query(DbProviderFactory factory, string connectionString, string sql)
     {
         using var connection = OpenConnection(factory, connectionString);
@@ -151,4 +164,33 @@ public static class Database
         command.CommandText = sql;
         return command;
     }
+}
+
+/// <summary>
+/// A database to query: a provider factory plus the connection settings.
+/// <para>
+/// Exists so a consuming tool does not have to repeat the connection-string building and
+/// the factory threading at every call site. The factory is passed in because this package
+/// references no driver — naming a driver is the one thing that has to stay in the tool.
+/// </para>
+/// </summary>
+public sealed class DbTarget
+{
+    private readonly DbProviderFactory _factory;
+    private readonly string _connectionString;
+
+    public DbTarget(DbProviderFactory factory, DbConnectionSettings settings)
+    {
+        _factory = factory;
+        _connectionString = Database.BuildConnectionString(settings);
+    }
+
+    /// <inheritdoc cref="Database.Query"/>
+    public DataTable Query(string sql) => Database.Query(_factory, _connectionString, sql);
+
+    /// <inheritdoc cref="Database.QueryAsDataSet"/>
+    public DataSet QueryAsDataSet(string sql) => Database.QueryAsDataSet(_factory, _connectionString, sql);
+
+    /// <inheritdoc cref="Database.Scalar"/>
+    public string? Scalar(string sql) => Database.Scalar(_factory, _connectionString, sql);
 }

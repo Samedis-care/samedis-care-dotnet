@@ -20,8 +20,9 @@ public class DatabaseTests
     [Fact]
     public void SqlServer_without_a_port_uses_the_bare_server()
     {
-        var cs = Database.BuildConnectionString(DbKind.SqlServer, new DbConnectionSettings
+        var cs = Database.BuildConnectionString(new DbConnectionSettings
         {
+            DatabaseType = DbKind.SqlServer,
             Server = "sql01", Database = "staff", Username = "svc", Password = "pw",
         });
 
@@ -32,8 +33,9 @@ public class DatabaseTests
     [Fact]
     public void SqlServer_with_a_port_appends_it_comma_separated()
     {
-        var cs = Database.BuildConnectionString(DbKind.SqlServer, new DbConnectionSettings
+        var cs = Database.BuildConnectionString(new DbConnectionSettings
         {
+            DatabaseType = DbKind.SqlServer,
             Server = "sql01", Port = "1433", Database = "staff",
         });
 
@@ -43,8 +45,9 @@ public class DatabaseTests
     [Fact]
     public void MySql_carries_the_public_key_flag()
     {
-        var cs = Database.BuildConnectionString(DbKind.MySql, new DbConnectionSettings
+        var cs = Database.BuildConnectionString(new DbConnectionSettings
         {
+            DatabaseType = DbKind.MySql,
             Server = "db", Port = "3306", Database = "d", Username = "u", Password = "p",
             AllowPublicKeyRetrieval = true,
         });
@@ -57,8 +60,9 @@ public class DatabaseTests
     [Fact]
     public void Sqlite_only_needs_the_file_path()
     {
-        var cs = Database.BuildConnectionString(DbKind.Sqlite, new DbConnectionSettings
+        var cs = Database.BuildConnectionString(new DbConnectionSettings
         {
+            DatabaseType = DbKind.Sqlite,
             Server = "/var/data/import.db", Username = "ignored", Password = "ignored",
         });
 
@@ -76,8 +80,9 @@ public class DatabaseTests
     [InlineData("  spaced  ")]
     public void A_password_with_awkward_characters_survives_a_round_trip(string password)
     {
-        var cs = Database.BuildConnectionString(DbKind.SqlServer, new DbConnectionSettings
+        var cs = Database.BuildConnectionString(new DbConnectionSettings
         {
+            DatabaseType = DbKind.SqlServer,
             Server = "sql01", Database = "d", Username = "u", Password = password,
         });
 
@@ -88,8 +93,9 @@ public class DatabaseTests
     [Fact]
     public void A_server_name_with_a_separator_also_survives()
     {
-        var cs = Database.BuildConnectionString(DbKind.Sqlite, new DbConnectionSettings
+        var cs = Database.BuildConnectionString(new DbConnectionSettings
         {
+            DatabaseType = DbKind.Sqlite,
             Server = "/tmp/od;d.db",
         });
 
@@ -99,7 +105,9 @@ public class DatabaseTests
     [Fact]
     public void Missing_credentials_become_empty_rather_than_the_literal_null()
     {
-        var cs = Database.BuildConnectionString(DbKind.SqlServer, new DbConnectionSettings { Server = "s" });
+        var cs = Database.BuildConnectionString(new DbConnectionSettings
+        {
+            DatabaseType = DbKind.SqlServer, Server = "s" });
 
         Value(cs, "User Id").Should().BeEmpty();
         cs.Should().NotContain("null");
@@ -108,7 +116,7 @@ public class DatabaseTests
     [Fact]
     public void An_unknown_kind_is_rejected()
     {
-        var act = () => Database.BuildConnectionString((DbKind)99, new DbConnectionSettings());
+        var act = () => Database.BuildConnectionString(new DbConnectionSettings { DatabaseType = (DbKind)99 });
 
         act.Should().Throw<NotSupportedException>();
     }
@@ -127,5 +135,49 @@ public class DatabaseTests
     private sealed class NullFactory : DbProviderFactory
     {
         public override DbConnection? CreateConnection() => null;
+    }
+}
+
+// DbTarget exists so a tool binds factory and settings once instead of threading both
+// through every call. The connection string is built up front, so a bad kind fails at
+// construction rather than at the first query.
+public class DbTargetTests
+{
+    private sealed class NullFactory : DbProviderFactory
+    {
+        public override DbConnection? CreateConnection() => null;
+    }
+
+    [Fact]
+    public void An_unsupported_kind_fails_at_construction()
+    {
+        var act = () => new DbTarget(new NullFactory(),
+                                     new DbConnectionSettings { DatabaseType = (DbKind)99 });
+
+        act.Should().Throw<NotSupportedException>();
+    }
+
+    [Fact]
+    public void A_valid_target_is_constructed_without_touching_the_database()
+    {
+        var act = () => new DbTarget(new NullFactory(), new DbConnectionSettings
+        {
+            DatabaseType = DbKind.Sqlite, Server = "/tmp/x.db",
+        });
+
+        act.Should().NotThrow("building the connection string must not open a connection");
+    }
+
+    [Fact]
+    public void Queries_surface_the_factory_failure()
+    {
+        var target = new DbTarget(new NullFactory(), new DbConnectionSettings
+        {
+            DatabaseType = DbKind.Sqlite, Server = "/tmp/x.db",
+        });
+
+        ((Action)(() => target.Query("select 1"))).Should().Throw<InvalidOperationException>();
+        ((Action)(() => target.Scalar("select 1"))).Should().Throw<InvalidOperationException>();
+        ((Action)(() => target.QueryAsDataSet("select 1"))).Should().Throw<InvalidOperationException>();
     }
 }
