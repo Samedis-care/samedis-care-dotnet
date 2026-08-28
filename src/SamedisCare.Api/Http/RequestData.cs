@@ -127,43 +127,22 @@ public class RequestData
     }
 
     /// <summary>
-    /// POST /issues/{id}/uploads — attach a PDF document to an issue.
-    /// The field name is 'data[document]' per the Samedis API docs
-    /// (see docs/api/samedis-public.yaml v4_tenant_issue_uploads). This is the only
-    /// field name the endpoint accepts — identical for PDF and PNG. The server validates
-    /// multipart strictly; 'data[file]' or 'data[image]' yield "File cannot be blank".
-    /// </summary>
-    public string PostIssueDocument(string resource, string filePath, string fileName)
-        => PostIssueUpload(resource, filePath, fileName);
-
-    /// <summary>
-    /// POST /issues/{id}/uploads — attach a PNG image. Behaves identically to
-    /// <see cref="PostIssueDocument"/>; the uploads endpoint always uses 'data[document]',
-    /// regardless of MIME type.
-    /// </summary>
-    public string PostIssueImage(string resource, string filePath, string fileName)
-        => PostIssueUpload(resource, filePath, fileName);
-
-    /// <summary>
-    /// Uploads a file to any uploads endpoint. Same request as
-    /// <see cref="PostIssueDocument"/> — the operation is not issue-specific, and the
-    /// trainings endpoints use it too, so this is the name to prefer. The
-    /// <c>PostIssue*</c> methods remain as aliases for existing callers.
+    /// Uploads a file to an uploads endpoint, e.g. <c>/issues/{id}/uploads</c> or
+    /// <c>/trainings/{id}/uploads</c>.
+    /// <para>
+    /// The field name is <c>data[document]</c>, alongside <c>data[name]</c> for the display
+    /// name, per the Samedis API docs. That is the only field name the endpoint accepts —
+    /// identical for PDF and PNG, so there is no separate image call. The server validates
+    /// multipart strictly; <c>data[file]</c> or <c>data[image]</c> yield
+    /// "File cannot be blank". The MIME type travels in the file part's Content-Type.
+    /// </para>
+    /// <para>
+    /// IMPORTANT: do NOT set an explicit <c>Content-Type</c> header — RestSharp sets
+    /// <c>multipart/form-data; boundary=...</c> correctly on its own, and setting it
+    /// manually without a boundary results in a 400 "File cannot be blank".
+    /// </para>
     /// </summary>
     public string PostDocument(string resource, string filePath, string fileName)
-        => PostIssueUpload(resource, filePath, fileName);
-
-    /// <summary>
-    /// Shared multipart upload path for /issues/{id}/uploads.
-    /// The field name is 'data[document]', alongside 'data[name]' for the display name,
-    /// per the Samedis API docs (docs/api/samedis-public.yaml). Works for both PDF and PNG;
-    /// the MIME type is supplied through the Content-Type of the file part.
-    ///
-    /// IMPORTANT: do NOT set an explicit 'Content-Type' header — RestSharp sets
-    /// 'multipart/form-data; boundary=...' correctly on its own. Setting it manually
-    /// without a boundary results in a 400 "File cannot be blank".
-    /// </summary>
-    private string PostIssueUpload(string resource, string filePath, string fileName)
     {
         using var client = new RestClient(_options);
         var request = new RestRequest(resource, Method.Post)

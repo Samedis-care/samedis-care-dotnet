@@ -68,24 +68,19 @@ public class DebugCsvTests : IDisposable
         => RequestData.EscapeCsv(input).Should().Be(expected);
 }
 
-// LastContent and PostDocument were added for sync-trainings: it reads meta.msg out of a
-// failed response after the call, and it uploads to a trainings endpoint rather than an
-// issue one. Pinned here so the aliases cannot drift apart.
+// LastContent and PostDocument came out of migrating sync-trainings. There is exactly
+// one upload method: the endpoint takes data[document] regardless of the file type, so a
+// separate image call never meant anything.
 public class RequestDataSurfaceTests
 {
     [Fact]
-    public void PostDocument_and_the_issue_aliases_are_the_same_operation()
+    public void There_is_one_upload_method_and_no_issue_specific_aliases()
     {
         var t = typeof(SamedisCare.Api.Http.RequestData);
-        var names = new[] { "PostDocument", "PostIssueDocument", "PostIssueImage" };
 
-        foreach (var name in names)
-        {
-            var m = t.GetMethod(name);
-            m.Should().NotBeNull($"{name} must exist");
-            m!.GetParameters().Select(p => p.ParameterType).Should().Equal(
-                new[] { typeof(string), typeof(string), typeof(string) });
-        }
+        t.GetMethod("PostDocument").Should().NotBeNull();
+        t.GetMethod("PostIssueDocument").Should().BeNull("the issue-specific alias was removed");
+        t.GetMethod("PostIssueImage").Should().BeNull("the endpoint takes no separate image field");
     }
 
     [Fact]
