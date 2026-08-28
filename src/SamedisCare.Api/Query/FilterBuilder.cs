@@ -40,6 +40,13 @@ public class FilterBuilder
         NotEqual,
         Contains,
         NotContains,
+
+        /// <summary>
+        /// Case-insensitive, anchored match. Use this where source data differs from
+        /// the catalog only in casing - "seca 954" against "Seca 954" - which
+        /// <see cref="Equals"/> would miss because it compares case-sensitively.
+        /// </summary>
+        Matches,
         StartsWith,
         EndsWith,
         GreaterThan,
@@ -93,7 +100,8 @@ public class FilterBuilder
         Type.Date   => "date",
         Type.Bool   => "bool",
         Type.Set    => "set",
-        _           => "text"
+        // No silent fallback, same reason as MapFilter.
+        _ => throw new ArgumentOutOfRangeException(nameof(t), t, "Unmapped value type")
     };
 
     private static string MapFilter(FilterType f) => f switch
@@ -107,7 +115,11 @@ public class FilterBuilder
         FilterType.GreaterThan  => "greaterThan",
         FilterType.LessThan     => "lessThan",
         FilterType.InRange      => "inRange",
-        _                       => "equals"
+        FilterType.Matches      => "matches",
+        // No silent fallback: a new FilterType without a mapping used to become "equals"
+        // here, which produced a wrong filter instead of an error. That is exactly how the
+        // missing "matches" mapping hid until a test asked for it.
+        _ => throw new ArgumentOutOfRangeException(nameof(f), f, "Unmapped filter type")
     };
 
     /// <summary>

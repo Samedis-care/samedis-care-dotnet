@@ -2,6 +2,7 @@ using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using SamedisCare.Api.Common;
 using SamedisCare.Api.Http;
+using SamedisCare.Api.Query;
 
 namespace SamedisCare.Api.V4.Public;
 public class Departments
@@ -9,7 +10,10 @@ public class Departments
 
   public static string? FindDepartmentId(RequestData client, string departmentsResource, string title)
   {
-    var gf = $"?gridfilter={{\"title\":{{\"filterType\":\"text\",\"type\":\"equals\",\"filter\":\"{title.Replace("\"", "\\\"")}\"}}}}&page=1&limit=1";
+    // FilterBuilder URL-encodes the payload. The previous hand-built string only escaped
+    // quotes, so a title containing '&', '#' or '+' terminated the query parameter early
+    // and the lookup silently filtered on a truncated value.
+    var gf = "?gridfilter=" + TitleFilter(title) + "&page=1&limit=1";
     var getResp = client.Get(departmentsResource + gf);
 
     if (string.IsNullOrEmpty(getResp))
@@ -39,7 +43,10 @@ public class Departments
   public static string? FindOrCreateDepartment(RequestData client, string departmentsResource, string title, string? code, string? costCenter)
   {
     // lookup
-    var gf = $"?gridfilter={{\"title\":{{\"filterType\":\"text\",\"type\":\"equals\",\"filter\":\"{title.Replace("\"", "\\\"")}\"}}}}&page=1&limit=1";
+    // FilterBuilder URL-encodes the payload. The previous hand-built string only escaped
+    // quotes, so a title containing '&', '#' or '+' terminated the query parameter early
+    // and the lookup silently filtered on a truncated value.
+    var gf = "?gridfilter=" + TitleFilter(title) + "&page=1&limit=1";
     var getResp = client.Get(departmentsResource + gf);
 
     string? existingId = null;
@@ -93,6 +100,13 @@ public class Departments
       // If response is not JSON or unexpected, fall back to existing id (on update) or null (on create)
       return existingId;
     }
+  }
+
+  private static string TitleFilter(string title)
+  {
+    var filter = new FilterBuilder();
+    filter.Add("title", FilterBuilder.FilterType.Equals, FilterBuilder.Type.Text, title);
+    return filter.Get();
   }
 
   // Root myDeserializedClass = JsonConvert.DeserializeObject<Root>(myJsonResponse);

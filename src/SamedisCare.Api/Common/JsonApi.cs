@@ -34,6 +34,63 @@ public static class JsonApi
         catch (JsonException) { return null; }
     }
 
+    /// <summary>
+    /// The first <c>data</c> element: the array's first entry for a list response, or the
+    /// object itself for a single-record one. Returns null for an empty body or one that is
+    /// not the expected shape; never throws.
+    /// </summary>
+    public static JToken? FirstData(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return null;
+        try
+        {
+            var data = JObject.Parse(json)["data"];
+            return data is JArray arr ? arr.FirstOrDefault() : data;
+        }
+        catch (JsonException) { return null; }
+    }
+
+    /// <summary>
+    /// The <c>id</c> of the first <c>data</c> element, or null. Same shape tolerance as
+    /// <see cref="FirstData"/>.
+    /// </summary>
+    public static string? FirstDataId(string? json)
+        => FirstData(json)?["id"]?.ToString();
+
+    /// <summary>
+    /// Collects one attribute across all <c>data</c> entries, skipping empty values.
+    /// Case-insensitive set, because these are compared against source data.
+    /// </summary>
+    public static HashSet<string> AttributeSet(string? json, string attribute)
+    {
+        var set = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        if (string.IsNullOrWhiteSpace(json)) return set;
+        try
+        {
+            if (JObject.Parse(json)["data"] is JArray arr)
+                foreach (var item in arr)
+                {
+                    var value = item["attributes"]?[attribute]?.ToString();
+                    if (!string.IsNullOrEmpty(value)) set.Add(value);
+                }
+        }
+        catch (JsonException) { /* not the expected shape - treat as none */ }
+        return set;
+    }
+
+    /// <summary>Number of entries in a list response, or 0 when it is not a list.</summary>
+    public static int DataCount(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return 0;
+        try { return JObject.Parse(json)["data"] is JArray arr ? arr.Count : 0; }
+        catch (JsonException) { return 0; }
+    }
+
+    /// <summary>
+    /// True for a 2xx status. The tools each had their own two-line version of this.
+    /// </summary>
+    public static bool IsSuccess(int statusCode) => statusCode is >= 200 and < 300;
+
     /// <summary>Adds an attribute only when the value is not null or whitespace.</summary>
     public static void AddStringAttribute(IDictionary<string, object> attributes, string key, string? value)
     {

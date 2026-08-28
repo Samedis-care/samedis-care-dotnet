@@ -1,4 +1,5 @@
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using SamedisCare.Api.Http;
 
 namespace SamedisCare.Api.Common;
@@ -22,6 +23,43 @@ public class ApiEnvelope
     {
         [JsonProperty("error")] public string? Error { get; set; }
         [JsonProperty("message")] public string? Message { get; set; }
+    }
+
+    /// <summary>
+    /// The fullest error text the server offers: <c>error</c>, <c>message</c> and
+    /// <c>error_details</c> from <c>meta.msg</c>, joined with an em dash and with empty
+    /// parts left out. Returns an empty string when there is nothing to report.
+    /// <para>
+    /// Prefer this over <see cref="ErrorMessage"/> for anything a person reads:
+    /// <c>error_details</c> is where validation failures name the offending field.
+    /// </para>
+    /// </summary>
+    public static string ErrorDetail(string? body)
+    {
+        if (string.IsNullOrWhiteSpace(body)) return string.Empty;
+        try
+        {
+            var msg = JObject.Parse(body)["meta"]?["msg"];
+            if (msg == null) return string.Empty;
+
+            var parts = new List<string>();
+            foreach (var key in new[] { "error", "message" })
+            {
+                var v = msg[key]?.ToString();
+                if (!string.IsNullOrWhiteSpace(v)) parts.Add(v);
+            }
+
+            var details = msg["error_details"];
+            if (details != null && details.Type != JTokenType.Null)
+            {
+                var d = details.Type == JTokenType.String ? details.ToString() : details.ToString(Formatting.None);
+                // The server sends these placeholders when there is nothing to say.
+                if (!string.IsNullOrWhiteSpace(d) && d is not ("null" or "{}" or "[]")) parts.Add(d);
+            }
+
+            return string.Join(" — ", parts);
+        }
+        catch (JsonException) { return string.Empty; }
     }
 
     /// <summary>
