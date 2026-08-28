@@ -28,9 +28,16 @@ public interface ITenantScope
 
     /// <summary>
     /// The scope's path prefix without a resource, e.g.
-    /// <c>/api/v4/tenants/{tenantId}</c>. Use this for the tenant record itself;
-    /// <see cref="Resource"/> rejects an empty resource on purpose, so that a missing
-    /// resource name cannot silently produce this path.
+    /// <c>/api/v4/tenants/{tenantId}</c>. <see cref="Resource"/> rejects an empty
+    /// resource on purpose, so that a missing resource name cannot silently produce
+    /// this path.
+    /// <para>
+    /// For an enterprise client scope this is the client record's own path
+    /// (<c>GET</c> and <c>PUT</c> exist there). For the standard scope it is NOT an
+    /// endpoint: the public API has no <c>GET /api/v4/tenants/{id}</c> — the tenant
+    /// record lives on the user surface and is read via
+    /// <c>Tenant.GetSettings</c>. Do not reach for <c>Root</c> to fetch a tenant.
+    /// </para>
     /// </summary>
     string Root { get; }
 

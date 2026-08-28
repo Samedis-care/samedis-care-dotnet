@@ -24,8 +24,10 @@ public class TenantScopeTests
         => TenantScope.EnterpriseTenant(Tenant).Resource("issues")
             .Should().Be($"/api/v4/enterprise/tenants/{Tenant}/issues");
 
-    // Root exists for the tenant record itself — Resource("") is rejected on purpose, so
-    // without it a caller would have to fall back to string interpolation.
+    // Root is the scope prefix. For an enterprise client scope that is the client
+    // record's own path, which does have GET/PUT. It is NOT an endpoint for the standard
+    // scope — the public API has no GET /api/v4/tenants/{id}; the tenant record is read
+    // through Tenant.GetSettings on the user surface.
     [Fact]
     public void Root_is_the_prefix_without_a_resource()
     {
