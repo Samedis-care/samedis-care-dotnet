@@ -4,27 +4,6 @@ using SamedisCare.Api.Common;
 namespace SamedisCare.Api.V4.Public;
 public class Staffs {
 
-  /// <summary>
-  /// Resolves a staff id from an employee number. Returns an empty string when there is no
-  /// match, so a caller can tell "not found" from a failed request by checking the
-  /// client's status code.
-  /// </summary>
-  /// <remarks>
-  /// Uses <c>staffs/via/employee_no/{no}</c>. That route is NOT in any of the OpenAPI specs
-  /// under doc/v4, but it is what the syncs have always used and it works. The employee
-  /// number comes straight from a source system and may contain characters that would break
-  /// a path segment, hence the escaping.
-  /// </remarks>
-  public static string FindIdByEmployeeNo(Http.RequestData client, Routing.ITenantScope scope,
-                                          string employeeNo)
-  {
-    if (string.IsNullOrWhiteSpace(employeeNo)) return "";
-
-    var content = client.Get(scope.Resource($"staffs/via/employee_no/{Uri.EscapeDataString(employeeNo.Trim())}"));
-
-    return JsonApi.IsSuccess(client.StatusCode) ? JsonApi.FirstDataId(content) ?? "" : "";
-  }
-
   // Root myDeserializedClass = JsonConvert.DeserializeObject<Root>(myJsonResponse);
   public class Attributes
   {

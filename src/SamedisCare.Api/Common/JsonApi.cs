@@ -78,12 +78,44 @@ public static class JsonApi
         return set;
     }
 
+    /// <summary>
+    /// Every <c>data</c> entry of a list response, in the order the server returned them.
+    /// Empty for a single-record response or an unexpected shape; never throws.
+    /// </summary>
+    public static IReadOnlyList<JToken> AllData(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return Array.Empty<JToken>();
+        try
+        {
+            return JObject.Parse(json)["data"] is JArray arr
+                ? arr.ToList()
+                : Array.Empty<JToken>();
+        }
+        catch (JsonException) { return Array.Empty<JToken>(); }
+    }
+
     /// <summary>Number of entries in a list response, or 0 when it is not a list.</summary>
     public static int DataCount(string? json)
     {
         if (string.IsNullOrWhiteSpace(json)) return 0;
         try { return JObject.Parse(json)["data"] is JArray arr ? arr.Count : 0; }
         catch (JsonException) { return 0; }
+    }
+
+    /// <summary>
+    /// <c>meta.total</c> — how many records matched, regardless of how many the page
+    /// returned. Null when the response carries no total.
+    /// <para>
+    /// Worth reading even when only one record is wanted: a lookup that matched several is
+    /// not the same as one that matched exactly one, and the difference decides whether
+    /// taking the first is safe. Prod has device models sharing a UDI-DI.
+    /// </para>
+    /// </summary>
+    public static int? Total(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return null;
+        try { return JObject.Parse(json)["meta"]?["total"]?.Value<int?>(); }
+        catch (JsonException) { return null; }
     }
 
     /// <summary>

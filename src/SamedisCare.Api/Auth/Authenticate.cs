@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Net;
+using System.Net.Sockets;
 using System.Text;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
@@ -26,6 +27,31 @@ public class Authenticate
     public string RefreshToken = "";
     public string User = "";
 
+    /// <summary>
+    /// Reports what the base URL's host resolves to, before anything is sent.
+    /// </summary>
+    /// <remarks>
+    /// When authentication fails at a customer site the first question is whether the name
+    /// resolves at all — a proxy, a split-horizon DNS or a firewall shows up here and nowhere
+    /// else in the log. Failure to resolve is reported and not thrown: the request that
+    /// follows will fail on its own and with a better message.
+    /// </remarks>
+    private static void LogNameResolution(string baseUrl, ISyncLog log)
+    {
+        if (log.Level < 2) return;
+
+        try
+        {
+            var host = new Uri(baseUrl).Host;
+            var addresses = Dns.GetHostAddresses(host);
+            log.Debug($"Auth DNS {host} -> {string.Join(", ", addresses.Select(a => a.ToString()))}");
+        }
+        catch (Exception ex) when (ex is SocketException or UriFormatException or ArgumentException)
+        {
+            log.Debug($"Auth DNS resolution failed: {ex.GetType().Name}: {ex.Message}");
+        }
+    }
+
     public Authenticate(string baseUrl, string clientId, string clientSecret, HttpSettings httpSettings, ISyncLog log)
     {
         try
@@ -39,6 +65,8 @@ public class Authenticate
             log.Debug($"Auth Proxy={httpSettings.Proxy}");
             log.Debug($"Auth ClientId(email)={clientId}");
             log.Debug($"Auth ClientSecret length={(clientSecret?.Length ?? 0)} (redacted)");
+
+            LogNameResolution(baseUrl, log);
 
             var options = new RestClientOptions(baseUrl)
             {

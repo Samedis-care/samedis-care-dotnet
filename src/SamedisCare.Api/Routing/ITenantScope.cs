@@ -27,6 +27,14 @@ public interface ITenantScope
     bool IsEnterprise { get; }
 
     /// <summary>
+    /// How this backend lets a record be found by a key other than its id. Kept apart from
+    /// <see cref="IsEnterprise"/> on purpose: today the two happen to agree, but one is a
+    /// path family and the other is which routes are mounted, and a future release could
+    /// change either without the other.
+    /// </summary>
+    KeyLookup KeyLookup { get; }
+
+    /// <summary>
     /// The scope's path prefix without a resource, e.g.
     /// <c>/api/v4/tenants/{tenantId}</c>. <see cref="Resource"/> rejects an empty
     /// resource on purpose, so that a missing resource name cannot silently produce

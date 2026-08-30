@@ -1,3 +1,4 @@
+using System.Globalization;
 namespace SamedisCare.Helper.Text;
 
 /// <summary>
@@ -67,15 +68,23 @@ public static class Strings
     /// sources are German exports. Returns false when the value is not recognised, which
     /// a caller must distinguish from a parsed <c>false</c>.
     /// </summary>
+    /// <summary>
+    /// Culture-invariant long parse, for identifiers and counters that arrive as text.
+    /// Invariant rather than configured, because a group separator has no business in an id.
+    /// </summary>
+    public static bool TryParseLong(string? value, out long parsed)
+        => long.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out parsed);
+
     public static bool TryParseBool(string? value, out bool parsed)
     {
         parsed = false;
         if (string.IsNullOrWhiteSpace(value)) return false;
         switch (value.Trim().ToLowerInvariant())
         {
-            case "true": case "yes": case "ja": case "1":
+            // "y"/"n" come from external-sync's source exports; the rest were already here.
+            case "true": case "yes": case "y": case "ja": case "1":
                 parsed = true; return true;
-            case "false": case "no": case "nein": case "0":
+            case "false": case "no": case "n": case "nein": case "0":
                 parsed = false; return true;
             default:
                 return false;

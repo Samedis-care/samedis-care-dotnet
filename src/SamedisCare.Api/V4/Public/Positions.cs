@@ -2,73 +2,38 @@ using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using SamedisCare.Api.Common;
 using SamedisCare.Api.Http;
+using SamedisCare.Api.Lookup;
 using SamedisCare.Api.Query;
+using SamedisCare.Helper.Logging;
 
 namespace SamedisCare.Api.V4.Public;
 public class Positions
 {
+  /// <summary>Resolves a position by title.</summary>
+  public static string? FindPositionId(ResourceLookup lookup, string title)
+    => lookup.ByField("title", title);
 
-  public static string? FindPositionId(RequestData client, string positionsResource, string title)
-  {
-    // FilterBuilder URL-encodes the payload. The previous hand-built string only escaped
-    // quotes, so a title containing '&', '#' or '+' terminated the query parameter early
-    // and the lookup silently filtered on a truncated value.
-    var gf = "?gridfilter=" + TitleFilter(title) + "&page=1&limit=1";
-    var getResp = client.Get(positionsResource + gf);
-    Root? posRoot = null;
-    if (!string.IsNullOrEmpty(getResp))
-    {
-      posRoot = JsonConvert.DeserializeObject<Root>(getResp);
-    }
-    var total = posRoot?.Meta?.Total ?? 0;
-    if (total > 0)
-      return posRoot!.Data![0].Attributes!.Id;
-    return null;
-  }
-
-  public static string? FindOrCreatePosition(RequestData client, string positionsResource, string title)
-  {
-    // Build gridfilter for title equals
-    // FilterBuilder URL-encodes the payload. The previous hand-built string only escaped
-    // quotes, so a title containing '&', '#' or '+' terminated the query parameter early
-    // and the lookup silently filtered on a truncated value.
-    var gf = "?gridfilter=" + TitleFilter(title) + "&page=1&limit=1";
-    var getResp = client.Get(positionsResource + gf);
-    Root? posRoot = null;
-    if (!string.IsNullOrEmpty(getResp))
-    {
-      posRoot = JsonConvert.DeserializeObject<Root>(getResp);
-    }
-    var total = posRoot?.Meta?.Total ?? 0;
-    if (total > 0)
-      return posRoot!.Data![0].Attributes!.Id;
-
-    var payload = new JObject
-    {
-      ["data"] = new JObject
-      {
-        ["title"] = title,
-        ["show_in_directory"] = false
-      }
-    };
-
-    var body = JsonConvert.SerializeObject(payload, Formatting.None);
-    var postResp = client.Post(positionsResource, body);
-    if (!string.IsNullOrEmpty(postResp))
-    {
-      posRoot = JsonConvert.DeserializeObject<Root>(postResp);
-    }
-    total = posRoot?.Meta?.Total ?? 0;
-    if (total > 0) return posRoot!.Data![0].Attributes!.Id;
-    return "";
-  }
-
-  private static string TitleFilter(string title)
-  {
-    var filter = new FilterBuilder();
-    filter.Add("title", FilterBuilder.FilterType.Equals, FilterBuilder.Type.Text, title);
-    return filter.Get();
-  }
+  /// <summary>
+  /// Resolves a position by title, creating it when it does not exist.
+  /// </summary>
+  /// <remarks>
+  /// The version this replaces read <c>meta.total</c> out of the create response to decide
+  /// whether the position had been created. A create response carries no meaningful total, so
+  /// a position that was created successfully came back as an empty string and the caller
+  /// treated it as unresolved.
+  /// </remarks>
+  public static string? FindOrCreatePosition(IApiClient client, ResourceLookup lookup,
+                                             string title, ISyncLog log)
+    => Records.FindOrCreate(
+         client, lookup.Resource,
+         find: () => lookup.ByField("title", title),
+         attributes: new Dictionary<string, object?>
+         {
+           ["title"] = title,
+           ["show_in_directory"] = false
+         },
+         log, $"position '{title}'",
+         remember: id => lookup.RememberField("title", title, id));
 
   // Root myDeserializedClass = JsonConvert.DeserializeObject<Root>(myJsonResponse);
   public class Attributes

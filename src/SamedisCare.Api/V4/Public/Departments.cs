@@ -2,111 +2,46 @@ using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using SamedisCare.Api.Common;
 using SamedisCare.Api.Http;
+using SamedisCare.Api.Lookup;
 using SamedisCare.Api.Query;
+using SamedisCare.Helper.Logging;
 
 namespace SamedisCare.Api.V4.Public;
 public class Departments
 {
-
-  public static string? FindDepartmentId(RequestData client, string departmentsResource, string title)
-  {
-    // FilterBuilder URL-encodes the payload. The previous hand-built string only escaped
-    // quotes, so a title containing '&', '#' or '+' terminated the query parameter early
-    // and the lookup silently filtered on a truncated value.
-    var gf = "?gridfilter=" + TitleFilter(title) + "&page=1&limit=1";
-    var getResp = client.Get(departmentsResource + gf);
-
-    if (string.IsNullOrEmpty(getResp))
-      return null;
-
-    try
-    {
-      var jo = JObject.Parse(getResp);
-      var dataTok = jo["data"];
-      if (dataTok is JObject obj)
-        return obj["id"]?.ToString() ?? obj["attributes"]?["id"]?.ToString();
-      if (dataTok is JArray arr && arr.Count > 0)
-        return arr[0]["id"]?.ToString() ?? arr[0]["attributes"]?["id"]?.ToString();
-    }
-    catch { }
-
-    return null;
-  }
+  /// <summary>Resolves a department by title.</summary>
+  public static string? FindDepartmentId(ResourceLookup lookup, string title)
+    => lookup.ByField("title", title);
 
   /// <summary>
-  /// Overload taking a <see cref="DepartmentInfo"/>, so callers that already collected
-  /// title, code and cost centre together do not have to unpack them at the call site.
+  /// Resolves a department by title and writes the given details onto it, creating it when it
+  /// does not exist.
   /// </summary>
-  public static string? FindOrCreateDepartment(RequestData client, string departmentsResource, DepartmentInfo department)
-    => FindOrCreateDepartment(client, departmentsResource, department.Title, department.Code, department.CostCenter);
-
-  public static string? FindOrCreateDepartment(RequestData client, string departmentsResource, string title, string? code, string? costCenter)
+  /// <remarks>
+  /// <para>
+  /// <b>The department's code is not sent.</b> The version this replaces put it in an
+  /// <c>external_id</c> field, which departments do not have: the model carries no such field
+  /// and the controller does not permit one, so the value was dropped by strong parameters
+  /// without any error. Anything that has to survive belongs in
+  /// <see cref="DepartmentInfo.CostCenter"/>, which maps onto a real field.
+  /// </para>
+  /// </remarks>
+  public static string? FindOrCreateDepartment(IApiClient client, ResourceLookup lookup,
+                                               DepartmentInfo department, ISyncLog log)
   {
-    // lookup
-    // FilterBuilder URL-encodes the payload. The previous hand-built string only escaped
-    // quotes, so a title containing '&', '#' or '+' terminated the query parameter early
-    // and the lookup silently filtered on a truncated value.
-    var gf = "?gridfilter=" + TitleFilter(title) + "&page=1&limit=1";
-    var getResp = client.Get(departmentsResource + gf);
-
-    string? existingId = null;
-    if (!string.IsNullOrEmpty(getResp))
+    var attributes = new Dictionary<string, object?>
     {
-      try
-      {
-        var jo = JObject.Parse(getResp);
-        var dataTok = jo["data"];
-        if (dataTok is JObject obj)
-          existingId = obj["id"]?.ToString() ?? obj["attributes"]?["id"]?.ToString();
-        else if (dataTok is JArray arr && arr.Count > 0)
-          existingId = arr[0]["id"]?.ToString() ?? arr[0]["attributes"]?["id"]?.ToString();
-      }
-      catch { /* ignore, treat as not found */ }
-    }
-
-    // prepare payload (create or update)
-    var payload = new JObject
-    {
-      ["data"] = new JObject
-      {
-        ["title"] = title,
-        ["external_id"] = string.IsNullOrWhiteSpace(code) ? null : code,
-        ["cost_center_number"] = string.IsNullOrWhiteSpace(costCenter) ? null : costCenter,
-        ["is_active"] = true
-      }
+      ["title"] = department.Title,
+      ["is_active"] = true
     };
-    var body = JsonConvert.SerializeObject(payload, Formatting.None);
+    JsonApi.AddStringAttribute(attributes!, "cost_center_number", department.CostCenter);
 
-    string? resp = existingId == null
-      ? client.Post(departmentsResource, body)
-      : client.Put(departmentsResource, existingId, body);
-
-    // Some PUTs may return 204 No Content (empty body) – in that case, return existingId
-    if (string.IsNullOrWhiteSpace(resp))
-      return existingId; // could be null if POST failed silently
-
-    try
-    {
-      var jo = JObject.Parse(resp);
-      var dataTok = jo["data"];
-      if (dataTok is JObject obj)
-        return obj["id"]?.ToString() ?? obj["attributes"]?["id"]?.ToString() ?? existingId;
-      if (dataTok is JArray arr && arr.Count > 0)
-        return arr[0]["id"]?.ToString() ?? arr[0]["attributes"]?["id"]?.ToString() ?? existingId;
-      return existingId;
-    }
-    catch
-    {
-      // If response is not JSON or unexpected, fall back to existing id (on update) or null (on create)
-      return existingId;
-    }
-  }
-
-  private static string TitleFilter(string title)
-  {
-    var filter = new FilterBuilder();
-    filter.Add("title", FilterBuilder.FilterType.Equals, FilterBuilder.Type.Text, title);
-    return filter.Get();
+    return Records.Upsert(
+      client, lookup.Resource,
+      find: () => lookup.ByField("title", department.Title),
+      attributes: attributes,
+      log, $"department '{department.Title}'",
+      remember: id => lookup.RememberField("title", department.Title, id));
   }
 
   // Root myDeserializedClass = JsonConvert.DeserializeObject<Root>(myJsonResponse);

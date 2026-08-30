@@ -26,6 +26,26 @@ public class ApiEnvelope
     }
 
     /// <summary>
+    /// Whether the body carries the server's own <c>meta.msg</c> envelope, i.e. whether the
+    /// application answered at all.
+    /// </summary>
+    /// <remarks>
+    /// This is how a real answer is told from the router's. Rails answers an unmounted route
+    /// with a bare <c>{"status":404,"error":"Not Found"}</c>, while the application's own
+    /// "no such record" carries the full envelope with
+    /// <c>meta.msg.error = record_not_found_error</c>. Both are 404, and without this
+    /// distinction a lookup against an endpoint that does not exist reads as "the record is
+    /// not there" -- verified against the enterprise API, where <c>via/external_id</c> is
+    /// mounted on no resource at all and every such lookup would silently resolve to null.
+    /// </remarks>
+    public static bool HasEnvelope(string? body)
+    {
+        if (string.IsNullOrWhiteSpace(body)) return false;
+        try { return JObject.Parse(body)["meta"]?["msg"] != null; }
+        catch (JsonException) { return false; }
+    }
+
+    /// <summary>
     /// The fullest error text the server offers: <c>error</c>, <c>message</c> and
     /// <c>error_details</c> from <c>meta.msg</c>, joined with an em dash and with empty
     /// parts left out. Returns an empty string when there is nothing to report.
@@ -60,6 +80,44 @@ public class ApiEnvelope
             return string.Join(" — ", parts);
         }
         catch (JsonException) { return string.Empty; }
+    }
+
+    /// <summary>
+    /// The id of the record a rejected create collided with, when the server named one.
+    /// </summary>
+    /// <param name="body">The response body of the rejected request.</param>
+    /// <param name="kind">
+    /// Which of the two the id came from: <c>duplicate_of</c> for a record the facility
+    /// already owns, <c>public_duplicate_of</c> for one in the shared catalog.
+    /// </param>
+    /// <remarks>
+    /// A create that fails because the record already exists is not really a failure: the
+    /// server puts the existing record's id in <c>meta.msg.error_details</c>, and using it is
+    /// what the caller wanted in the first place. The facility's own record takes precedence
+    /// over the public one, because that is the one the facility can edit.
+    /// </remarks>
+    public static string? DuplicateOf(string? body, out string kind)
+    {
+        kind = string.Empty;
+        if (string.IsNullOrWhiteSpace(body)) return null;
+
+        try
+        {
+            var details = JObject.Parse(body)["meta"]?["msg"]?["error_details"];
+            if (details is not JObject obj) return null;
+
+            foreach (var key in new[] { "duplicate_of", "public_duplicate_of" })
+            {
+                var value = obj[key]?.ToString();
+                if (string.IsNullOrWhiteSpace(value)) continue;
+
+                kind = key;
+                return value;
+            }
+        }
+        catch (JsonException) { /* not the expected shape */ }
+
+        return null;
     }
 
     /// <summary>

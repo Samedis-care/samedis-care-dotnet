@@ -11,11 +11,16 @@ namespace SamedisCare.Api.Http;
 ///
 /// Adapted from Samedis-care/samedis-care-external-sync `Samedis.cs`.
 /// </summary>
-public class RequestData
+public class RequestData : IApiClient
 {
+    // IApiClient wants properties; these are long-standing public fields, so the interface
+    // is satisfied explicitly rather than changing the fields and breaking every caller.
+    int IApiClient.StatusCode => StatusCode;
+    string IApiClient.LastContent => LastContent;
+
     public int StatusCode;
     public HttpStatusCode Status;
-    public string LastError = string.Empty;
+    public string LastError { get; private set; } = string.Empty;
     public string LastResponseStatus = string.Empty;
 
     /// <summary>
@@ -154,6 +159,82 @@ public class RequestData
         response = HandleRetry(response, request, client.ExecutePost);
         Capture(response);
         return response.Content ?? string.Empty;
+    }
+
+    /// <summary>
+    /// Downloads a generated file, waiting while the server is still producing it.
+    /// </summary>
+    /// <param name="url">
+    /// The download URL as the API handed it out. It carries its own authorisation, so no
+    /// bearer token is attached — sending one is unnecessary and would leak the token to
+    /// whatever host the URL names.
+    /// </param>
+    /// <param name="outputPath">Where to write the file. An existing file is replaced.</param>
+    /// <param name="maxRetries">How many times to wait for a not-yet-ready document.</param>
+    /// <param name="retryDelay">How long to wait between attempts.</param>
+    /// <returns>
+    /// True when the file was written. False when the server kept answering "not ready" until
+    /// the retries ran out — a normal outcome worth reporting rather than an error.
+    /// </returns>
+    /// <remarks>
+    /// Samedis answers <b>202 Accepted</b> while a document (a protocol PDF, an export) is
+    /// still being generated. Treating that as success writes the 202 body — usually an empty
+    /// or JSON placeholder — into the target file under the name of the document that was
+    /// asked for, and nothing downstream notices. Hence the wait-and-retry loop.
+    /// </remarks>
+    public async Task<bool> DownloadAsync(string url, string outputPath,
+                                          int maxRetries = 5, TimeSpan? retryDelay = null)
+    {
+        var delay = retryDelay ?? TimeSpan.FromSeconds(5);
+
+        using var handler = new HttpClientHandler();
+        if (!string.IsNullOrEmpty(_httpSettings.Proxy))
+        {
+            var proxy = new WebProxy(_httpSettings.Proxy) { BypassProxyOnLocal = false };
+            if (!string.IsNullOrEmpty(_httpSettings.ProxyUsername))
+                proxy.Credentials = new NetworkCredential(_httpSettings.ProxyUsername,
+                                                          _httpSettings.ProxyPassword);
+            handler.Proxy = proxy;
+            handler.UseProxy = true;
+        }
+        if (!_httpSettings.ValidateCertificate)
+            handler.ServerCertificateCustomValidationCallback =
+                HttpClientHandler.DangerousAcceptAnyServerCertificateValidator;
+
+        using var client = new HttpClient(handler)
+        {
+            Timeout = TimeSpan.FromSeconds(_httpSettings.TimeoutSeconds)
+        };
+
+        for (var attempt = 0; attempt <= maxRetries; attempt++)
+        {
+            var response = await client.GetAsync(url).ConfigureAwait(false);
+            StatusCode = (int)response.StatusCode;
+            Status = response.StatusCode;
+
+            if (response.StatusCode == HttpStatusCode.Accepted)
+            {
+                if (attempt == maxRetries)
+                {
+                    _log.Warn($"Download not ready after {maxRetries + 1} attempts: {url}");
+                    return false;
+                }
+                _log.Debug($"Download not ready yet, waiting {delay.TotalSeconds:0}s: {url}");
+                await Task.Delay(delay).ConfigureAwait(false);
+                continue;
+            }
+
+            response.EnsureSuccessStatusCode();
+
+            var directory = Path.GetDirectoryName(outputPath);
+            if (!string.IsNullOrEmpty(directory)) Directory.CreateDirectory(directory);
+
+            await using var file = new FileStream(outputPath, FileMode.Create, FileAccess.Write);
+            await response.Content.CopyToAsync(file).ConfigureAwait(false);
+            return true;
+        }
+
+        return false;
     }
 
     /// <summary>

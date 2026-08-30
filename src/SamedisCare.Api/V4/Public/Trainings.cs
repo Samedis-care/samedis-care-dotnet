@@ -2,6 +2,7 @@ using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using SamedisCare.Api.Common;
 using SamedisCare.Api.Http;
+using SamedisCare.Api.Lookup;
 using SamedisCare.Api.Query;
 using SamedisCare.Api.Routing;
 
@@ -53,41 +54,108 @@ public class Trainings
         public List<Data>? Data { get; set; }
     }
 
-    /// <summary>A training found by lookup: its id and current status.</summary>
-    public readonly record struct Existing(string Id, string Status)
+    /// <summary>A training found by lookup: its id, current status, and how many records
+    /// the marker matched.</summary>
+    /// <param name="Id">The training's Samedis id.</param>
+    /// <param name="Status">Its current status.</param>
+    /// <param name="Matches">
+    /// How many records carry this marker. More than one is a real condition, not a
+    /// theoretical one, and the caller should say so rather than silently take the first.
+    /// </param>
+    public readonly record struct Existing(string Id, string Status, int Matches = 0)
     {
         public bool Found => !string.IsNullOrEmpty(Id);
+
+        /// <summary>Several trainings carry this source id -- the tenant has a duplicate.</summary>
+        public bool Ambiguous => Matches > 1;
     }
 
     /// <summary>
-    /// Finds a training whose <c>remark</c> contains <paramref name="marker"/>. Sync tools
-    /// stamp their source id into the remark, which is how a re-run recognises what it
-    /// already created. Returns an empty result when nothing matches.
+    /// Finds the training a sync stamped with <paramref name="marker"/> in its
+    /// <c>remark</c>. This is how a re-run recognises what it already imported, so both
+    /// possible mistakes are expensive: missing the record imports it a second time, and
+    /// matching the wrong one skips a training that was never imported at all.
     /// </summary>
-    public static Existing FindByRemark(RequestData client, ITenantScope scope, string marker)
+    /// <param name="client">The API client.</param>
+    /// <param name="scope">The tenant scope to look under.</param>
+    /// <param name="marker">
+    /// The stamp, parentheses included, e.g. <c>(4711)</c>. Matched literally -- the server
+    /// runs the value through <c>Regexp.escape</c>, so the parentheses are characters and
+    /// not a capture group.
+    /// </param>
+    /// <exception cref="LookupUnavailableException">
+    /// The lookup was not answered. This is the read that decides whether a training gets
+    /// created, so a failure must not pass as "not there yet": a token that lost a
+    /// permission would otherwise re-import every training the tenant already has.
+    /// </exception>
+    /// <remarks>
+    /// <para>
+    /// <b>Why the filter is not enough on its own.</b> <c>contains</c> looks anywhere in the
+    /// remark, and the remark holds free text from the source system alongside the stamp --
+    /// a site named "Haus A (12)" carries the literal <c>(12)</c> without being training 12.
+    /// Taking the server's first hit would then report a different training as already
+    /// imported and drop this one for good.
+    /// </para>
+    /// <para>
+    /// So the filter stays broad and the decision is made here: of the records that carry
+    /// the marker, the ones whose remark <b>ends</b> with it are preferred, because that is
+    /// where a sync appends its stamp. The broad match is still what gets asked for -- an
+    /// operator who adds a note after the stamp must not turn the training invisible and
+    /// have it imported again.
+    /// </para>
+    /// </remarks>
+    public static Existing FindByRemark(IApiClient client, ITenantScope scope, string marker)
     {
+        var resource = scope.Resource("trainings");
+
         var filter = new FilterBuilder();
         filter.Add("remark", FilterBuilder.FilterType.Contains, FilterBuilder.Type.Text, marker);
 
-        var content = client.Get($"{scope.Resource("trainings")}?page[limit]=1&gridfilter={filter.Get()}");
-        if (!JsonApi.IsSuccess(client.StatusCode)) return default;
+        var content = client.Get($"{resource}?page[limit]={MarkerCandidates}&gridfilter={filter.Get()}");
+        if (!JsonApi.IsSuccess(client.StatusCode))
+        {
+            LookupUnavailableException.ThrowUnlessAbsent(resource, client.StatusCode, content);
+            return default;
+        }
 
-        var data = JsonApi.FirstData(content);
-        if (data == null) return default;
+        var carrying = JsonApi.AllData(content)
+            .Select(d => (Id: d["id"]?.ToString() ?? "",
+                          Status: d["attributes"]?["status"]?.ToString() ?? "",
+                          Remark: d["attributes"]?["remark"]?.ToString() ?? ""))
+            .Where(c => c.Id.Length > 0)
+            .ToList();
 
-        return new Existing(data["id"]?.ToString() ?? "",
-                            data["attributes"]?["status"]?.ToString() ?? "");
+        if (carrying.Count == 0) return default;
+
+        var stamped = carrying
+            .Where(c => c.Remark.TrimEnd().EndsWith(marker, StringComparison.Ordinal))
+            .ToList();
+
+        // Nothing ends with the marker: every hit carries it incidentally, or someone wrote
+        // past the stamp. Falling back to the broad set keeps the re-import from happening;
+        // Matches tells the caller the choice was not clear-cut.
+        var matches = stamped.Count > 0 ? stamped : carrying;
+
+        return new Existing(matches[0].Id, matches[0].Status, matches.Count);
     }
 
+    /// <summary>
+    /// How many records the marker lookup reads before deciding. One is not enough -- the
+    /// choice between an incidental hit and the stamped one can only be made across the
+    /// candidates -- and a marker matching more than a handful means the tenant's data needs
+    /// fixing, not a larger page.
+    /// </summary>
+    private const int MarkerCandidates = 20;
+
     /// <summary>Creates a training. Returns the new id, or null when the call failed.</summary>
-    public static string? Create(RequestData client, ITenantScope scope, JObject attributes)
+    public static string? Create(IApiClient client, ITenantScope scope, JObject attributes)
     {
         var content = client.Post(scope.Resource("trainings"), Envelope(attributes));
         return JsonApi.IsSuccess(client.StatusCode) ? JsonApi.FirstDataId(content) : null;
     }
 
     /// <summary>Updates a training's attributes.</summary>
-    public static bool Update(RequestData client, ITenantScope scope, string trainingId,
+    public static bool Update(IApiClient client, ITenantScope scope, string trainingId,
                               JObject attributes)
     {
         client.Put(scope.Resource("trainings"), trainingId, Envelope(attributes));
@@ -98,7 +166,7 @@ public class Trainings
     /// Sets a training's status. <c>completed</c> is derived from the status rather than
     /// passed separately, because the two must not disagree.
     /// </summary>
-    public static bool SetStatus(RequestData client, ITenantScope scope, string trainingId,
+    public static bool SetStatus(IApiClient client, ITenantScope scope, string trainingId,
                                  string briefingType, string status)
         => Update(client, scope, trainingId, new JObject
         {
@@ -108,7 +176,7 @@ public class Trainings
         });
 
     /// <summary>Attaches a device model to a training.</summary>
-    public static bool AddDeviceModel(RequestData client, ITenantScope scope, string trainingId,
+    public static bool AddDeviceModel(IApiClient client, ITenantScope scope, string trainingId,
                                       JObject attributes)
     {
         client.Post(scope.Resource($"trainings/{trainingId}/device_models"), Envelope(attributes));
@@ -116,7 +184,7 @@ public class Trainings
     }
 
     /// <summary>Attaches a participant to a training.</summary>
-    public static bool AddStaff(RequestData client, ITenantScope scope, string trainingId, string staffId)
+    public static bool AddStaff(IApiClient client, ITenantScope scope, string trainingId, string staffId)
     {
         client.Post(scope.Resource($"trainings/{trainingId}/staffs"),
                     Envelope(new JObject { ["staff_id"] = staffId }));
@@ -124,7 +192,7 @@ public class Trainings
     }
 
     /// <summary>Uploads a document to a training.</summary>
-    public static bool UploadDocument(RequestData client, ITenantScope scope, string trainingId,
+    public static bool UploadDocument(IApiClient client, ITenantScope scope, string trainingId,
                                       string filePath, string fileName)
     {
         client.PostDocument(scope.Resource($"trainings/{trainingId}/uploads"), filePath, fileName);
@@ -135,18 +203,27 @@ public class Trainings
     /// The <c>catalog_id</c>s already attached to a training. Used to make a resumed run
     /// idempotent instead of attaching a device twice.
     /// </summary>
-    public static HashSet<string> AttachedCatalogIds(RequestData client, ITenantScope scope, string trainingId)
+    /// <exception cref="LookupUnavailableException">
+    /// The read was not answered. An empty set is indistinguishable from "nothing attached",
+    /// and that is precisely the answer a resumed run acts on -- so an unanswered read would
+    /// undo the idempotency this method exists to provide.
+    /// </exception>
+    public static HashSet<string> AttachedCatalogIds(IApiClient client, ITenantScope scope, string trainingId)
         => AttributeSet(client, scope.Resource($"trainings/{trainingId}/device_models"), "catalog_id");
 
     /// <summary>The <c>staff_id</c>s already attached to a training.</summary>
-    public static HashSet<string> AttachedStaffIds(RequestData client, ITenantScope scope, string trainingId)
+    public static HashSet<string> AttachedStaffIds(IApiClient client, ITenantScope scope, string trainingId)
         => AttributeSet(client, scope.Resource($"trainings/{trainingId}/staffs"), "staff_id");
 
     /// <summary>How many documents are already attached to a training.</summary>
-    public static int UploadCount(RequestData client, ITenantScope scope, string trainingId)
+    /// <inheritdoc cref="AttachedCatalogIds" path="/exception"/>
+    public static int UploadCount(IApiClient client, ITenantScope scope, string trainingId)
     {
-        var content = client.Get($"{scope.Resource($"trainings/{trainingId}/uploads")}?page[limit]={PageLimit}");
-        return JsonApi.IsSuccess(client.StatusCode) ? JsonApi.DataCount(content) : 0;
+        var resource = scope.Resource($"trainings/{trainingId}/uploads");
+        var content = client.Get($"{resource}?page[limit]={PageLimit}");
+
+        LookupUnavailableException.ThrowUnlessAnswered(resource, client.StatusCode, content);
+        return JsonApi.DataCount(content);
     }
 
     /// <summary>
@@ -156,12 +233,12 @@ public class Trainings
     /// </summary>
     private const int PageLimit = 500;
 
-    private static HashSet<string> AttributeSet(RequestData client, string resource, string attribute)
+    private static HashSet<string> AttributeSet(IApiClient client, string resource, string attribute)
     {
         var content = client.Get($"{resource}?page[limit]={PageLimit}");
-        return JsonApi.IsSuccess(client.StatusCode)
-            ? JsonApi.AttributeSet(content, attribute)
-            : new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        LookupUnavailableException.ThrowUnlessAnswered(resource, client.StatusCode, content);
+        return JsonApi.AttributeSet(content, attribute);
     }
 
     // Samedis does not use the strict JSON:API { data: { type, attributes } } form; the
