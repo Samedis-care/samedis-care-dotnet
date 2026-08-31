@@ -31,7 +31,6 @@ public enum LogMode
 /// </summary>
 public sealed class FileSyncLog : ISyncLog
 {
-    private const string TimeFormat = "yyyy-MM-dd HH:mm:ss";
     private static readonly object FileLock = new();
 
     private readonly LogMode _mode;
@@ -53,30 +52,33 @@ public sealed class FileSyncLog : ISyncLog
         _path = path;
     }
 
-    public void Info(string message) => Write(message, "INFO", 1);
+    public void Info(string message) => Write(message, LogFormat.Levels.Info, 1);
 
-    public void Warn(string message) => Write(message, "WARN", 1);
+    public void Warn(string message) => Write(message, LogFormat.Levels.Warn, 1);
 
     public void Error(string message, Exception? ex = null)
-        => Write(ex == null ? message : $"{message}: {ex.Message}", "ERROR", 1);
+        => Write(ex == null ? message : $"{message}: {ex.Message}", LogFormat.Levels.Error, 1);
 
-    public void Debug(string message) => Write(message, "DEBUG", 2);
+    public void Debug(string message) => Write(message, LogFormat.Levels.Debug, 2);
 
     private void Write(string message, string type, int requiredLevel)
     {
         if (requiredLevel > Level || _mode == LogMode.None)
             return;
 
-        var stamp = DateTime.Now.ToString(TimeFormat);
+        var at = DateTime.Now;
 
         if (_mode is LogMode.Console or LogMode.Both)
         {
             Console.WriteLine(new string('*', 80));
-            Console.WriteLine($"{stamp} {message}");
+            Console.WriteLine($"{at.ToString(LogFormat.TimeFormat)} {message}");
         }
 
+        // Through LogFormat rather than a local template: samedis-care-log-monitor parses
+        // these lines, and a format that lives in two places drifts apart without anything
+        // noticing -- see the remarks there.
         if (_mode is LogMode.File or LogMode.Both)
-            AppendToFile($"{stamp} {type} {message}");
+            AppendToFile(LogFormat.Compose(at, type, message));
     }
 
     // Logging must never take the sync down: a full disk or a locked file is not a reason

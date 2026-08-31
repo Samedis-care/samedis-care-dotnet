@@ -20,6 +20,23 @@
     <PackageVersion Include="YamlDotNet" Version="16.3.0" />
   </ItemGroup>
 
+  <!-- Mail transports. Only SamedisCare.Mail references these, so a tool that sends no
+       mail never sees Graph or Gmail. Versions are the highest the tool repos already
+       carry, so a consumer only ever moves up on migration. -->
+  <ItemGroup>
+    <PackageVersion Include="MailKit" Version="4.17.0" />
+    <PackageVersion Include="Microsoft.Graph" Version="5.101.0" />
+    <PackageVersion Include="Azure.Identity" Version="1.17.1" />
+    <PackageVersion Include="Google.Apis.Auth" Version="1.73.0" />
+    <PackageVersion Include="Google.Apis.Gmail.v1" Version="1.73.0.3987" />
+
+    <!-- Pinned above what Microsoft.Graph 5.101.0 asks for: its 1.21.1 carries
+         GHSA-7j59-v9qr-6fq9, rated high. Transitive pinning is on, so naming the version
+         here is enough and Graph itself stays where it is. The tools already shipped the
+         vulnerable version — this fixes it for them too. -->
+    <PackageVersion Include="Microsoft.Kiota.Abstractions" Version="1.22.2" />
+  </ItemGroup>
+
   <!-- Test dependencies.
        FluentAssertions stays on 6.12.1 on purpose — 7.0 and later are under a
        commercial license, which does not fit an MIT repository. Do not bump
