@@ -11,7 +11,14 @@ of from copy-paste.
 
 | Package | Purpose |
 | --- | --- |
-| `SamedisCare.Api` | Auth (Ident Services OAuth), HTTP, gridfilter/sort/pagination, resource routing |
+| `SamedisCare.Api` | Auth (Ident Services OAuth), HTTP, gridfilter/sort/pagination, resource routing, record lookup |
+| `SamedisCare.Helper` | Logging, dates, CSV, text encodings, config, database access — no HTTP |
+| `SamedisCare.Mail` | Sending mail over SMTP, Microsoft Graph or the Gmail API |
+
+`SamedisCare.Mail` is separate rather than part of `SamedisCare.Helper` on purpose: MailKit,
+Microsoft.Graph, Google.Apis.Gmail and Azure.Identity together weigh more than everything
+else in the family, and most tools send no mail. They should not have to carry a Graph client
+to get a logger.
 
 ### Layout
 
@@ -24,11 +31,17 @@ and a future v5 can be added alongside instead of colliding.
 | `SamedisCare.Api.Auth` | `Authenticate` — Ident Services OAuth |
 | `SamedisCare.Api.Http` | `RequestData` (GET/POST/PUT, uploads, 429 retry), `HttpSettings` |
 | `SamedisCare.Api.Query` | `FilterBuilder` for `gridfilter=...` payloads |
-| `SamedisCare.Api.Routing` | `ITenantScope`, `TenantScope` |
-| `SamedisCare.Api.Logging` | `ISyncLog`, `ConsoleSyncLog`, `FileSyncLog`, `NullSyncLog` |
-| `SamedisCare.Api.Common` | `Helper`, `Dates`, `Capability`, `ApiEnvelope` |
-| `SamedisCare.Api.V4.Public` | `Inventories`, `Issues`, `Staffs`, `Positions`, `Departments`, `DepartmentInfo` |
+| `SamedisCare.Api.Routing` | `ITenantScope`, `TenantScope`, `KeyLookup` |
+| `SamedisCare.Api.Lookup` | `ResourceLookup`, `Cascades`, `Records`, `Regulatory`, `LookupUnavailableException` |
+| `SamedisCare.Api.Common` | `Ids`, `JsonApi`, `Capability`, `ApiEnvelope` |
+| `SamedisCare.Api.V4.Public` | `Inventories`, `Issues`, `Trainings`, `Staffs`, `Positions`, `Departments`, `DepartmentInfo`, `CatalogValues` |
 | `SamedisCare.Api.V4.Common` | `Tenant` — appears identically across several surfaces |
+| `SamedisCare.Helper.Logging` | `ISyncLog`, `ConsoleSyncLog`, `FileSyncLog`, `NullSyncLog`, `LogFormat` |
+| `SamedisCare.Helper.Text` | `Csv`, `Strings`, `Numbers`, `TextEncodings` |
+| `SamedisCare.Helper.Data` | `Database`, `Rows` |
+| `SamedisCare.Helper.IO` | `Files` |
+| `SamedisCare.Helper.Config` | `ConfigStore` |
+| `SamedisCare.Mail` | `Mailer`, `MailMessage`, `MailSettings` |
 
 `Positions` and `Departments` also carry the generic `Find…Id` / `FindOrCreate…` helpers.
 `DepartmentInfo` bundles the title, code and cost centre a department upsert needs. It holds
@@ -150,6 +163,37 @@ Three traps:
   MDM endpoint (`.../tenants/{id}/mdm/device_models`). `external_id` is still writable and
   still filterable — so the cascade matches it with a gridfilter instead.
 
+### The enterprise API has no via route at all
+
+`via/:via_name/:via_value` is mounted on **18 resources of the tenant API** and on **none of
+the enterprise ones** — `config/routes/v4_enterprise.rb` carries only `concerns: :changelogs`.
+Verified live on 2026-08-30: the same inventory answered 200 through the route under the
+tenant path, 404 under the enterprise path, and was found by gridfilter under both.
+
+That is why the mechanism is a property of the scope rather than a decision each call site
+makes:
+
+```csharp
+TenantScope.Standard(tenantId)              // KeyLookup.Route
+TenantScope.Enterprise(tenantId, clientId)  // KeyLookup.Filter
+```
+
+`Cascades.For` reads it from the scope and `ResourceLookup.ByUniqueField` dispatches, so a
+sync moved to the enterprise API changes its scope and nothing else. `ByVia` stays available
+where a caller knows the route exists.
+
+`KeyLookup` is deliberately separate from `IsEnterprise`: today the two agree, but one is a
+path family and the other is which routes are mounted, and a release could change either
+without the other.
+
+**Why this needed a switch rather than tolerance.** A route that is not mounted answers 404,
+and 404 is the one status that means "no such record". Left alone, every `ByVia` on the
+enterprise API would have resolved to null silently and each cascade would have dropped to
+its weakest key — for inventories the device number, which a source may have reassigned to a
+different device. The two 404s are told apart by their body: the application's carries
+`meta.msg.error = record_not_found_error`, the router's is a bare `{"status":404}` with no
+envelope. `ApiEnvelope.HasEnvelope` is that test.
+
 ### Device models: the scope is not optional
 
 `filter[scope]` is documented with `default: public_and_tenant`, but **omitting the parameter
@@ -225,6 +269,48 @@ request, is deliberately unused: it appears twice in `public.yaml` and **not at 
 `enterprise.yaml`, so a cascade built on it would resolve nothing in enterprise mode and
 silently create duplicates.
 
+## The log format is a contract
+
+`FileSyncLog` writes the lines that samedis-care-log-monitor reads, from another repository.
+The format therefore lives in one place, `LogFormat`, and both sides go through it:
+
+```csharp
+LogFormat.Compose(at, LogFormat.Levels.Error, message)   // yyyy-MM-dd HH:mm:ss ERROR …
+LogFormat.TryParse(line, out var entry)
+LogFormat.FileName(DateTime.Now)                          // Logfile_2026-08-30.log
+```
+
+It used to be a const in the writer and a regular expression in the reader, with no test over
+the round trip. That is worse than it sounds because of how the reader fails: a line it cannot
+match is not an error to it, it is the continuation of the entry above. A format that had
+drifted would have folded every `ERROR` into the text before it and reported a clean run — a
+monitor gone blind looks exactly like a run with no problems.
+
+`LogFormat.FileName` matters for the same reason. The tools built the name with
+`ToShortDateString()`, which follows the machine's culture, so the same tool produced
+`Logfile_30.08.2026.log` on one host and `Logfile_2026-08-30.log` on the next — and the monitor
+carried six candidate date formats to find either.
+
+## Sending mail
+
+One call, three transports, chosen by configuration:
+
+```csharp
+var mailer = new Mailer(config.Mail, log, "MyTool");
+await mailer.SendAsync(
+    new MailMessage(from, mailer.Recipients(), subject, htmlBody, textBody),
+    "daily report");
+```
+
+`MailSettings` is the shape the tools' `config.yml` already had, so an existing file keeps
+working. A failed send is reported through `ISyncLog` and returns false rather than throwing:
+sending a report is not what a sync is for, and a mail server that is down should not lose a
+run that has already done its work.
+
+`MailMessage` carries an HTML body plus an optional plain-text alternative;
+`MailMessage.PlainText` builds the text-only case, which writes no empty HTML part — some
+clients display the alternative they are given and show a blank mail.
+
 ## Development
 
 ```bash
@@ -247,10 +333,10 @@ stays exactly as it will be committed, which means what you test is what ships.
 
 ```bash
 # 1. build the package into a local feed
-dotnet pack SamedisCare.Dotnet.sln -c Release -p:Version=0.2.0-rc.2 -o ~/.nuget/samedis-local
+dotnet pack SamedisCare.Dotnet.sln -c Release -p:Version=0.3.0-rc.22 -o ~/.nuget/samedis-local
 
 # 2. NuGet caches by version, so drop the cached copy before re-restoring
-rm -rf ~/.nuget/packages/samediscare.api/0.2.0-rc.2
+rm -rf ~/.nuget/packages/samediscare.{api,helper,mail}/0.3.0-rc.22
 
 # 3. in the consuming tool
 dotnet restore --force && dotnet build -c Release

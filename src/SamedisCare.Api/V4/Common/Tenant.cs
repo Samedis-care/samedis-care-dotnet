@@ -1,5 +1,6 @@
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using SamedisCare.Api.Common;
 using SamedisCare.Api.Http;
 using SamedisCare.Helper.Logging;
 
@@ -56,24 +57,28 @@ public class Tenant
         public string LocationMode => UseExtendedDeviceLocations ? "property" : "standard";
     }
 
-    public static Settings GetSettings(RequestData client, string apiVersion, string tenantId, ISyncLog log)
+    /// <exception cref="Lookup.LookupUnavailableException">
+    /// The settings could not be read. Deliberately not a fallback to defaults: these two
+    /// flags decide how every inventory of the run is written. Guessing
+    /// <c>use_extended_device_locations</c> wrong sends each one down the wrong location
+    /// path, and guessing <c>use_profit_centers</c> wrong drops the profit centre from all
+    /// of them — a whole import written into the wrong shape, reported as a clean run.
+    /// The caller decides what to do about it; terminating is the host's business.
+    /// </exception>
+    public static Settings GetSettings(IApiClient client, string apiVersion, string tenantId, ISyncLog log)
     {
         var resource = $"/api/{apiVersion}/user/tenants/{tenantId}";
         var response = client.Get(resource);
 
         if (client.StatusCode is < 200 or >= 300 || string.IsNullOrWhiteSpace(response))
-        {
-            log.Warn($"Tenant settings request failed ({client.StatusCode}). Falling back to defaults.");
-            return new Settings { TenantId = tenantId };
-        }
+            throw new Lookup.LookupUnavailableException(resource, client.StatusCode,
+                ApiEnvelope.ErrorDetail(response));
 
         var root = JsonConvert.DeserializeObject<Root>(response);
         var attributes = root?.Data?.Attributes;
         if (attributes == null)
-        {
-            log.Warn("Tenant settings response had no attributes; falling back to defaults.");
-            return new Settings { TenantId = tenantId };
-        }
+            throw new Lookup.LookupUnavailableException(resource, client.StatusCode,
+                "the response carried no tenant attributes");
 
         return new Settings
         {
