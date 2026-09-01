@@ -12,21 +12,21 @@ public static class TenantScope
     /// Normal world: <c>/api/{version}/tenants/{tenantId}/{resource}</c>
     /// </summary>
     public static ITenantScope Standard(string tenantId, string apiVersion = DefaultApiVersion)
-        => new Scope(apiVersion, tenantId, clientId: null, isEnterprise: false);
+        => new Scope(apiVersion, tenantId, clientId: null, isEnterprise: false, KeyLookup.Route);
 
     /// <summary>
     /// Enterprise, client-scoped (the mirror of the normal world, and the sync target):
     /// <c>/api/{version}/enterprise/tenants/{tenantId}/clients/{clientId}/{resource}</c>
     /// </summary>
     public static ITenantScope Enterprise(string tenantId, string clientId, string apiVersion = DefaultApiVersion)
-        => new Scope(apiVersion, tenantId, Guard(clientId, nameof(clientId)), isEnterprise: true);
+        => new Scope(apiVersion, tenantId, Guard(clientId, nameof(clientId)), isEnterprise: true, KeyLookup.Filter);
 
     /// <summary>
     /// Enterprise, cross-facility aggregate (mostly read-only):
     /// <c>/api/{version}/enterprise/tenants/{tenantId}/{resource}</c>
     /// </summary>
     public static ITenantScope EnterpriseTenant(string tenantId, string apiVersion = DefaultApiVersion)
-        => new Scope(apiVersion, tenantId, clientId: null, isEnterprise: true);
+        => new Scope(apiVersion, tenantId, clientId: null, isEnterprise: true, KeyLookup.Filter);
 
     private static string Guard(string value, string paramName)
         => string.IsNullOrWhiteSpace(value)
@@ -37,12 +37,14 @@ public static class TenantScope
     {
         private readonly string _prefix;
 
-        internal Scope(string apiVersion, string tenantId, string? clientId, bool isEnterprise)
+        internal Scope(string apiVersion, string tenantId, string? clientId, bool isEnterprise,
+                       KeyLookup keyLookup)
         {
             ApiVersion = Guard(apiVersion, nameof(apiVersion)).TrimStart('/');
             TenantId = Guard(tenantId, nameof(tenantId));
             ClientId = clientId;
             IsEnterprise = isEnterprise;
+            KeyLookup = keyLookup;
 
             _prefix = (isEnterprise, clientId) switch
             {
@@ -56,6 +58,8 @@ public static class TenantScope
         public string TenantId { get; }
         public string? ClientId { get; }
         public bool IsEnterprise { get; }
+        public KeyLookup KeyLookup { get; }
+        public string Root => _prefix;
 
         public string Resource(string resource)
         {

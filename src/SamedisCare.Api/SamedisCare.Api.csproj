@@ -27,6 +27,13 @@
     <PackageReference Include="RestSharp" />
   </ItemGroup>
 
+  <!-- Logging and date parsing are not API concerns, so they live in SamedisCare.Helper
+       and this package builds on it. A tool that only needs logging can then depend on
+       Helper alone instead of dragging in the HTTP client. -->
+  <ItemGroup>
+    <ProjectReference Include="../SamedisCare.Helper/SamedisCare.Helper.csproj" />
+  </ItemGroup>
+
   <!-- The diagnostic CSV helpers are internal on purpose — they are an implementation
        detail, not part of the public surface — but they carry enough formatting logic
        (quoting, truncation) to be worth testing directly. -->

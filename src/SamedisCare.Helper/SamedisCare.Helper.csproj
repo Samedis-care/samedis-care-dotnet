@@ -1,0 +1,39 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>SamedisCare.Helper</RootNamespace>
+    <IsPackable>true</IsPackable>
+    <PackageId>SamedisCare.Helper</PackageId>
+    <Title>Samedis.care Tool Helpers</Title>
+    <Description>Cross-cutting helpers shared by the Samedis.care sync tools: YAML config loading, logging, date parsing, CSV reading and writing, and provider-agnostic database access. Contains no API client — see SamedisCare.Api for that.</Description>
+    <PackageTags>samedis;samedis-care;helpers;csv;yaml</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+  </PropertyGroup>
+
+  <!-- Deliberately light. Notably absent:
+       - database drivers: Data/Database works against DbProviderFactory, so the consuming
+         tool keeps its own driver references and this package forces none on anyone.
+       - MailKit / Microsoft.Graph / Google.Apis: mail belongs in a separate package.
+         Microsoft.Graph alone dwarfs everything else here, and the tray apps publish as
+         self-contained single-file executables where that weight is felt.
+       - ExcelDataReader: the tools use it inline and share no abstraction over it, so
+         there is nothing to centralise yet. -->
+  <ItemGroup>
+    <PackageReference Include="YamlDotNet" />
+    <PackageReference Include="CsvHelper" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="SamedisCare.Helper.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="$(MSBuildThisFileDirectory)../../README.md" Pack="true" PackagePath="/" />
+  </ItemGroup>
+
+</Project>

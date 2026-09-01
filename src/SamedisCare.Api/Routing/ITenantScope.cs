@@ -27,6 +27,29 @@ public interface ITenantScope
     bool IsEnterprise { get; }
 
     /// <summary>
+    /// How this backend lets a record be found by a key other than its id. Kept apart from
+    /// <see cref="IsEnterprise"/> on purpose: today the two happen to agree, but one is a
+    /// path family and the other is which routes are mounted, and a future release could
+    /// change either without the other.
+    /// </summary>
+    KeyLookup KeyLookup { get; }
+
+    /// <summary>
+    /// The scope's path prefix without a resource, e.g.
+    /// <c>/api/v4/tenants/{tenantId}</c>. <see cref="Resource"/> rejects an empty
+    /// resource on purpose, so that a missing resource name cannot silently produce
+    /// this path.
+    /// <para>
+    /// For an enterprise client scope this is the client record's own path
+    /// (<c>GET</c> and <c>PUT</c> exist there). For the standard scope it is NOT an
+    /// endpoint: the public API has no <c>GET /api/v4/tenants/{id}</c> — the tenant
+    /// record lives on the user surface and is read via
+    /// <c>Tenant.GetSettings</c>. Do not reach for <c>Root</c> to fetch a tenant.
+    /// </para>
+    /// </summary>
+    string Root { get; }
+
+    /// <summary>
     /// Returns the full path for a resource, e.g. <c>inventories</c> or
     /// <c>inventories/{id}/uploads</c>. Leading slashes in the argument are tolerated.
     /// </summary>

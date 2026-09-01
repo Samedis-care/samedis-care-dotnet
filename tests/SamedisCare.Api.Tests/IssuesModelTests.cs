@@ -1,6 +1,7 @@
 using FluentAssertions;
 using Newtonsoft.Json;
 using Xunit;
+using SamedisCare.Api.V4.Public;
 
 namespace SamedisCare.Api.Tests;
 

@@ -1,5 +1,6 @@
 using FluentAssertions;
 using Xunit;
+using SamedisCare.Api.Http;
 
 namespace SamedisCare.Api.Tests;
 
@@ -65,4 +66,25 @@ public class DebugCsvTests : IDisposable
     [InlineData("has\nnewline", "\"has\nnewline\"")]
     public void EscapeCsv_quotes_only_what_needs_quoting(string input, string expected)
         => RequestData.EscapeCsv(input).Should().Be(expected);
+}
+
+// LastContent and PostDocument came out of migrating sync-trainings. There is exactly
+// one upload method: the endpoint takes data[document] regardless of the file type, so a
+// separate image call never meant anything.
+public class RequestDataSurfaceTests
+{
+    [Fact]
+    public void There_is_one_upload_method_and_no_issue_specific_aliases()
+    {
+        var t = typeof(SamedisCare.Api.Http.RequestData);
+
+        t.GetMethod("PostDocument").Should().NotBeNull();
+        t.GetMethod("PostIssueDocument").Should().BeNull("the issue-specific alias was removed");
+        t.GetMethod("PostIssueImage").Should().BeNull("the endpoint takes no separate image field");
+    }
+
+    [Fact]
+    public void LastContent_is_exposed_for_after_the_fact_error_parsing()
+        => typeof(SamedisCare.Api.Http.RequestData).GetField("LastContent")
+             .Should().NotBeNull();
 }
