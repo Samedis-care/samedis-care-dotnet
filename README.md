@@ -143,7 +143,7 @@ is not, and a **404 with no JSON body** means the route is not mounted at all.
 | `contracts` | yes | `id`, `contract_number` | not probed |
 | `trainings` | yes | `briefing_number` — **no `external_id`** | **500** |
 | `departments` | yes | **none** | **500** |
-| `device_models` | no (sync endpoint) | — | 404, no JSON |
+| `device_models` | read-only (`via_show`) | `external_id`, `merged_catalog_id` | — |
 
 **A via lookup on an unsupported field answers 500, not 4xx.** `ResourceLookup` therefore
 throws `LookupUnavailableException` on any 5xx instead of reporting "no such record": the two
@@ -159,9 +159,20 @@ Three traps:
 - **`departments` mounts the route but accepts no field.** The model carries no
   `external_id` and the controller does not permit one, so a `code` sent under that key is
   silently dropped. Departments resolve by title.
-- **`device_models` has no via route on the endpoint a sync uses.** It exists only on the
-  MDM endpoint (`.../tenants/{id}/mdm/device_models`). `external_id` is still writable and
-  still filterable — so the cascade matches it with a gridfilter instead.
+- **`device_models` mounts the route read-only.** It used to exist only on the MDM endpoint;
+  `via_show` was added to the tenant endpoint with
+  [samedis-care-issues#2347](https://github.com/Samedis-care/samedis-care-issues/issues/2347),
+  so a lookup resolves but a write or delete through a via name still does not. The cascade
+  keeps matching `external_id` with a gridfilter anyway — that is the only form that also
+  works in enterprise mode, where no via route is mounted on anything.
+- **`merged_catalog_id` is the one via field that is not a field.** It searches the
+  `merged_catalog_ids` array, which holds the ids of device models merged into this one, and
+  answers with the survivor. Singular on purpose: one historic id in, one record out. Note
+  that filtering that array with a gridfilter does **not** work — the field is in the
+  whitelist, so the request is accepted, but `equals` compares a string against
+  `BSON::ObjectId` values and answers 200 with an empty list, which reads like "never
+  merged". Use the via route, or `GET {resource}/{id}`, which resolves a historic id to the
+  survivor on its own.
 
 ### The enterprise API has no via route at all
 

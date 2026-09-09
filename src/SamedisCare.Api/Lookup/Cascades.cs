@@ -81,11 +81,22 @@ public static class Cascades
     /// </param>
     /// <remarks>
     /// <para>
-    /// <b>external_id works here, but not through the via route.</b> The field exists on the
-    /// model and is writable on the sync endpoint, and because the gridfilter whitelist is
-    /// simply every field of the document, it can be filtered on. What is missing is
-    /// <c>via/external_id</c>: that route is mounted only on the MDM endpoint for device
-    /// models. So this step uses a gridfilter, unlike every other cascade here.
+    /// <b>external_id resolves through a gridfilter here, not through the via route.</b>
+    /// The route was added to the tenant endpoint for device models with
+    /// samedis-care-issues#2347 and does accept <c>external_id</c>, so both ways work in
+    /// standard mode now. The gridfilter is kept because it is the only one that also works
+    /// in enterprise mode, where no <c>via</c> route is mounted on any resource at all —
+    /// switching this step to <see cref="ResourceLookup.ByUniqueField"/> would buy nothing
+    /// and would make the scope harder to see, since the two paths carry it differently.
+    /// </para>
+    /// <para>
+    /// <b>A device model merged away is gone, and no key here brings it back.</b> The merge
+    /// hard-destroys the source record, carrying only its <b>id</b> to the survivor
+    /// (<c>merged_catalog_ids</c>). Title, manufacturer and external_id die with it. So of
+    /// the steps below only <see cref="ResourceLookup.ById"/> survives a merge — the server
+    /// resolves a historic id to the survivor — and every other step reports the model as
+    /// absent. A caller that creates on a miss therefore recreates what an operator
+    /// deliberately merged away; it must not do that for a record that already has a model.
     /// </para>
     /// <para>
     /// It is also the weaker key for this resource. Device models are largely public master

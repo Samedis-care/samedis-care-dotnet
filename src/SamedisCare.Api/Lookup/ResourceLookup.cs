@@ -78,11 +78,20 @@ public sealed class ResourceLookup
     }
 
     /// <summary>
-    /// Fetches the record directly by its Samedis id.
+    /// Fetches the record directly by its Samedis id, and answers with <b>the id the server
+    /// returned</b>, which is not always the one that was asked for.
     /// <para>
     /// Values that are not a well-formed ObjectId are rejected without a request: source
     /// data routinely carries a placeholder or free text in an id column, and asking the
     /// API about it only costs a round trip.
+    /// </para>
+    /// <para>
+    /// On device models the returned id genuinely differs after a merge: the server resolves
+    /// an id that was merged away to the record that absorbed it
+    /// (samedis-care-issues#2347), so a caller that keeps this answer instead of the value
+    /// it passed in stops carrying a historic id around. That is the only cheap way to learn
+    /// a merge happened — the id is unchanged for every other record and every other
+    /// resource, so comparing the two is a reliable signal rather than a guess.
     /// </para>
     /// </summary>
     public string? ById(string? id)
@@ -115,9 +124,10 @@ public sealed class ResourceLookup
     /// Two constraints that are not visible from the specs under doc/v4, which document
     /// none of this:
     /// <list type="bullet">
-    /// <item>The route has to be mounted on the resource. It is not mounted everywhere —
-    /// notably <b>not</b> on the sync endpoint for device models, which is why
-    /// <see cref="Cascades.DeviceModel"/> resolves through regulatory identifiers instead.</item>
+    /// <item>The route has to be mounted on the resource, and it is not mounted
+    /// everywhere. On the tenant endpoint for device models it is mounted read-only
+    /// (<c>via_show</c>, added for samedis-care-issues#2347), so a lookup resolves but a
+    /// write or delete through a via name does not — those stay an mdm operation.</item>
     /// <item>Departments carry no <c>external_id</c> at all, so no via name works there
     /// even though the route is mounted.</item>
     /// </list>

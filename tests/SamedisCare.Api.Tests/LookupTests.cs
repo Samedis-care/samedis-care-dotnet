@@ -82,6 +82,36 @@ public class ResourceLookupTests
         lookup.ById(Oid).Should().Be(Oid);
     }
 
+    // A device model that was merged away resolves to the record that absorbed it
+    // (samedis-care-issues#2347), so the server answers a DIFFERENT id than the one asked
+    // for. Handing back the id that was passed in would look identical on the happy path
+    // and would silently keep a historic id in circulation on this one.
+    [Fact]
+    public void ById_answers_with_the_survivor_after_a_merge()
+    {
+        const string survivor = "507f1f77bcf86cd799439099";
+        var client = FakeClient.Answering(($"/{Oid}", survivor));
+        var lookup = new ResourceLookup(client, "device_models");
+
+        lookup.ById(Oid).Should().Be(survivor);
+    }
+
+    // The answer is cached under the id that was ASKED for, not the one that came back --
+    // that is what turns one lookup into an old-to-new mapping for the whole run instead of
+    // a request per row.
+    [Fact]
+    public void A_resolved_merge_is_remembered_under_the_historic_id()
+    {
+        const string survivor = "507f1f77bcf86cd799439099";
+        var client = FakeClient.Answering(($"/{Oid}", survivor));
+        var lookup = new ResourceLookup(client, "device_models");
+
+        lookup.ById(Oid).Should().Be(survivor);
+        lookup.ById(Oid).Should().Be(survivor);
+
+        client.Requests.Should().HaveCount(1);
+    }
+
     // Source data routinely carries free text or a placeholder in an id column. Asking the
     // API about it only costs a round trip, so the shape is checked first.
     [Theory]
