@@ -1,6 +1,7 @@
 using FluentAssertions;
 using Newtonsoft.Json;
 using Xunit;
+using SamedisCare.Api.V4.Public;
 
 namespace SamedisCare.Api.Tests;
 
@@ -66,7 +67,7 @@ public class StaffModelTests
     }
 
     // The API returns `data` as a bare object for single-record responses and as an array
-    // for collections. Every Root here relies on Helper.SingleOrArrayConverter to absorb
+    // for collections. Every Root here relies on JsonApi.SingleOrArrayConverter to absorb
     // that — if the converter is ever dropped, these two cases catch it.
     [Fact]
     public void Data_as_single_object_is_accepted()

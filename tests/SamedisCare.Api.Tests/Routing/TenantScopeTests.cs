@@ -24,6 +24,28 @@ public class TenantScopeTests
         => TenantScope.EnterpriseTenant(Tenant).Resource("issues")
             .Should().Be($"/api/v4/enterprise/tenants/{Tenant}/issues");
 
+    // Root is the scope prefix. For an enterprise client scope that is the client
+    // record's own path, which does have GET/PUT. It is NOT an endpoint for the standard
+    // scope — the public API has no GET /api/v4/tenants/{id}; the tenant record is read
+    // through Tenant.GetSettings on the user surface.
+    [Fact]
+    public void Root_is_the_prefix_without_a_resource()
+    {
+        TenantScope.Standard(Tenant).Root
+            .Should().Be($"/api/v4/tenants/{Tenant}");
+        TenantScope.Enterprise(Tenant, Client).Root
+            .Should().Be($"/api/v4/enterprise/tenants/{Tenant}/clients/{Client}");
+        TenantScope.EnterpriseTenant(Tenant).Root
+            .Should().Be($"/api/v4/enterprise/tenants/{Tenant}");
+    }
+
+    [Fact]
+    public void Root_and_Resource_agree_on_the_prefix()
+    {
+        var scope = TenantScope.Enterprise(Tenant, Client);
+        scope.Resource("inventories").Should().Be($"{scope.Root}/inventories");
+    }
+
     [Fact]
     public void Nested_resources_are_preserved()
         => TenantScope.Enterprise(Tenant, Client).Resource("inventories/abc/uploads")

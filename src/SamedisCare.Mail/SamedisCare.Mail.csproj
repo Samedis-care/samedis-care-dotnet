@@ -1,0 +1,43 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>SamedisCare.Mail</RootNamespace>
+    <IsPackable>true</IsPackable>
+    <PackageId>SamedisCare.Mail</PackageId>
+    <Title>Samedis.care Mail</Title>
+    <Description>Sending mail the way the samedis-care tools do it: SMTP, Microsoft Graph or the Gmail API behind one call, chosen by configuration.</Description>
+    <PackageTags>samedis;samedis-care;mail;smtp;graph;gmail</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+  </PropertyGroup>
+
+  <!-- Its own package rather than part of SamedisCare.Helper: MailKit, Microsoft.Graph,
+       Google.Apis.Gmail and Azure.Identity together are heavier than everything else in
+       the family combined, and three of the five tools send no mail at all. They should
+       not have to carry a Graph client to get a logger. -->
+  <ItemGroup>
+    <PackageReference Include="MailKit" />
+    <PackageReference Include="Microsoft.Graph" />
+    <PackageReference Include="Azure.Identity" />
+    <PackageReference Include="Google.Apis.Auth" />
+    <PackageReference Include="Google.Apis.Gmail.v1" />
+  </ItemGroup>
+
+  <!-- For ISyncLog: a send that fails has to say so where the rest of the run is written. -->
+  <ItemGroup>
+    <ProjectReference Include="../SamedisCare.Helper/SamedisCare.Helper.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="SamedisCare.Mail.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="$(MSBuildThisFileDirectory)../../README.md" Pack="true" PackagePath="/" />
+  </ItemGroup>
+
+</Project>
