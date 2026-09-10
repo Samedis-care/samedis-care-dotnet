@@ -247,3 +247,68 @@ public class ConfigStoreWalkTerminationTests
         cfg.Items.Should().ContainSingle().Which.Should().BeNull();
     }
 }
+
+/// <summary>
+/// A section declared as a collection interface. Review finding on the release PR: these
+/// stayed null, so a consumer using <c>IList&lt;T&gt;</c> still got the very
+/// NullReferenceException this release removes — and the "leaves alone" list did not mention
+/// it, because "no parameterless constructor" does not read as covering an interface.
+/// </summary>
+public class ConfigStoreInterfaceSectionTests
+{
+    private class Tenant { public string? Name { get; set; } }
+
+    private class Cfg
+    {
+        public IList<Tenant> Tenants { get; set; } = new List<Tenant>();
+        public IReadOnlyList<Tenant> Readonly { get; set; } = new List<Tenant>();
+        public ICollection<Tenant> Collection { get; set; } = new List<Tenant>();
+        public IEnumerable<Tenant> Enumerable { get; set; } = new List<Tenant>();
+        public ISet<string> Set { get; set; } = new HashSet<string>();
+        public IDictionary<string, string> Lookup { get; set; } = new Dictionary<string, string>();
+        public IReadOnlyDictionary<string, string> ReadonlyLookup { get; set; } = new Dictionary<string, string>();
+
+        // Not a collection: picking an implementation is the consumer's call, not ours.
+        public IComparable? Other { get; set; }
+
+        // A value type that CAN be null. Skipped on purpose -- there is nothing to restore the
+        // declared default from -- but the docs used to give the wrong reason for it.
+        public int? Retries { get; set; } = 3;
+    }
+
+    private const string AllEmpty = """
+        tenants:
+        readonly:
+        collection:
+        enumerable:
+        set:
+        lookup:
+        readonly_lookup:
+        other:
+        retries:
+        """;
+
+    [Fact]
+    public void A_collection_interface_section_is_filled()
+    {
+        var cfg = ConfigStore.Parse<Cfg>(AllEmpty, ignoreUnmatchedProperties: true);
+
+        cfg.Tenants.Should().NotBeNull().And.BeEmpty();
+        cfg.Readonly.Should().NotBeNull().And.BeEmpty();
+        cfg.Collection.Should().NotBeNull().And.BeEmpty();
+        cfg.Enumerable.Should().NotBeNull().And.BeEmpty();
+        cfg.Set.Should().NotBeNull().And.BeEmpty();
+        cfg.Lookup.Should().NotBeNull().And.BeEmpty();
+        cfg.ReadonlyLookup.Should().NotBeNull().And.BeEmpty();
+    }
+
+    [Fact]
+    public void A_non_collection_interface_section_stays_null()
+        => ConfigStore.Parse<Cfg>(AllEmpty, ignoreUnmatchedProperties: true)
+            .Other.Should().BeNull("choosing an implementation is the consumer's decision");
+
+    [Fact]
+    public void A_nullable_scalar_stays_null()
+        => ConfigStore.Parse<Cfg>(AllEmpty, ignoreUnmatchedProperties: true)
+            .Retries.Should().BeNull("there is nothing to restore the declared default from");
+}
