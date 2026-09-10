@@ -103,11 +103,14 @@ public static class ConfigStore
     /// <para>
     /// What it fills: any readable and writable reference-typed property that is null and
     /// whose type has a public parameterless constructor, plus arrays (created empty). It
-    /// then walks into the value, and into the elements of anything enumerable, so a null
-    /// nested under a section or inside a list element is filled too. What it deliberately
-    /// leaves alone: strings, because a null string means "not configured" and an empty one
-    /// does not; value types, which are never null in the first place; properties without a
-    /// setter; and types with no parameterless constructor, which it cannot construct.
+    /// then walks into the value, into the elements of a sequence and into the values of a
+    /// dictionary, so a null nested under a section, inside a list element or under a
+    /// dictionary value is filled too. What it deliberately leaves alone: strings, because a
+    /// null string means "not configured" and an empty one does not; value types, which are
+    /// never null in the first place; properties without a setter; types with no parameterless
+    /// constructor, which it cannot construct; a dictionary <em>key</em>; and a list element
+    /// written as a bare <c>-</c>, which is an empty entry rather than an empty section.
+    /// Filling stops at <see cref="MaxDepth"/>.
     /// </para>
     /// </remarks>
     /// <returns>The same instance, for chaining.</returns>
@@ -117,16 +120,48 @@ public static class ConfigStore
         return config;
     }
 
-    private static void Walk(object node, HashSet<object> seen)
+    /// <summary>
+    /// How deep the walk goes before it stops filling. Guards a config <em>type</em> whose
+    /// shape is unbounded -- <c>class A { B B; }</c> with <c>class B { A A; }</c> -- which the
+    /// <c>seen</c> set below cannot catch, because every <see cref="CreateDefault"/> hands back
+    /// a fresh instance it has never seen. Before this cap that shape stack-overflowed on an
+    /// entirely empty config file, and a StackOverflowException cannot be caught: the process
+    /// died without a message, which is strictly worse than the NullReferenceException this
+    /// class exists to remove.
+    /// <para>
+    /// A cap rather than a per-path type set on purpose: the same type legitimately appears
+    /// twice along a path in real nested data (a tree loaded from YAML), and refusing to fill
+    /// there would trade a crash for a quiet null. 64 is far past any hand-written config.
+    /// </para>
+    /// </summary>
+    private const int MaxDepth = 64;
+
+    private static void Walk(object node, HashSet<object> seen, int depth = 0)
     {
+        if (depth >= MaxDepth) return;
+
         // A config type may point back at itself; without this the walk would not terminate.
+        // This covers a cyclic instance graph; MaxDepth covers a cyclic type.
         if (!seen.Add(node)) return;
+
+        // A dictionary has to come first and be handled by its values: it enumerates as
+        // KeyValuePair<,>, a value type, so ShouldWalk would reject every entry and the values
+        // would never be visited at all.
+        if (node is IDictionary dictionary)
+        {
+            foreach (var value in dictionary.Values)
+                if (ShouldWalk(value))
+                    Walk(value!, seen, depth + 1);
+            return;
+        }
 
         if (node is IEnumerable sequence)
         {
+            // An element written as a bare "-" stays null: there is no section to default
+            // there, and quietly turning an empty list entry into an object would hide it.
             foreach (var item in sequence)
                 if (ShouldWalk(item))
-                    Walk(item!, seen);
+                    Walk(item!, seen, depth + 1);
             return;
         }
 
@@ -146,7 +181,7 @@ public static class ConfigStore
             }
 
             if (ShouldWalk(value))
-                Walk(value, seen);
+                Walk(value, seen, depth + 1);
         }
     }
 
