@@ -86,12 +86,15 @@ public sealed class ResourceLookup
     /// API about it only costs a round trip.
     /// </para>
     /// <para>
-    /// On device models the returned id genuinely differs after a merge: the server resolves
-    /// an id that was merged away to the record that absorbed it
-    /// (samedis-care-issues#2347), so a caller that keeps this answer instead of the value
-    /// it passed in stops carrying a historic id around. That is the only cheap way to learn
-    /// a merge happened — the id is unchanged for every other record and every other
-    /// resource, so comparing the two is a reliable signal rather than a guess.
+    /// Today the two are always the same, and the distinction is here so a caller keeps the
+    /// server's answer rather than the value it passed in. It matters for device models,
+    /// which can be merged: the merge hard-destroys the source and records nowhere that it
+    /// existed, so a historic id is a plain 404 and this returns null — <b>not</b> the record
+    /// that absorbed it. A caller must not read that miss as "not imported yet", or it
+    /// recreates a model somebody deliberately merged away. Resolving a merged-away id to
+    /// the survivor is the work in samedis-care-issues#2347; once it is in production, the
+    /// returned id will differ from the requested one for exactly that case, and comparing
+    /// the two becomes a reliable merge signal. Until then, code against the 404.
     /// </para>
     /// </summary>
     public string? ById(string? id)
@@ -125,9 +128,9 @@ public sealed class ResourceLookup
     /// none of this:
     /// <list type="bullet">
     /// <item>The route has to be mounted on the resource, and it is not mounted
-    /// everywhere. On the tenant endpoint for device models it is mounted read-only
-    /// (<c>via_show</c>, added for samedis-care-issues#2347), so a lookup resolves but a
-    /// write or delete through a via name does not — those stay an mdm operation.</item>
+    /// everywhere. For device models it is not on the tenant endpoint at all — only under
+    /// <c>namespace :mdm</c> — so a sync resolves them with a gridfilter on
+    /// <c>external_id</c> instead.</item>
     /// <item>Departments carry no <c>external_id</c> at all, so no via name works there
     /// even though the route is mounted.</item>
     /// </list>

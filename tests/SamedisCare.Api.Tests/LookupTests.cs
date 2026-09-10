@@ -82,12 +82,13 @@ public class ResourceLookupTests
         lookup.ById(Oid).Should().Be(Oid);
     }
 
-    // A device model that was merged away resolves to the record that absorbed it
-    // (samedis-care-issues#2347), so the server answers a DIFFERENT id than the one asked
-    // for. Handing back the id that was passed in would look identical on the happy path
-    // and would silently keep a historic id in circulation on this one.
+    // ById hands back what the SERVER answered, not what was passed in. The two are the same
+    // today; the case they come apart in is a device model merged away resolving to the record
+    // that absorbed it (samedis-care-issues#2347), which is not in production yet. Returning
+    // the argument instead would look identical on the happy path and silently keep a historic
+    // id in circulation once it is -- so the contract is pinned now, not later.
     [Fact]
-    public void ById_answers_with_the_survivor_after_a_merge()
+    public void ById_answers_with_the_id_the_server_returned()
     {
         const string survivor = "507f1f77bcf86cd799439099";
         var client = FakeClient.Answering(($"/{Oid}", survivor));
@@ -97,10 +98,10 @@ public class ResourceLookupTests
     }
 
     // The answer is cached under the id that was ASKED for, not the one that came back --
-    // that is what turns one lookup into an old-to-new mapping for the whole run instead of
-    // a request per row.
+    // that is what would turn one lookup into an old-to-new mapping for the whole run instead
+    // of a request per row, for whichever resource starts answering a different id.
     [Fact]
-    public void A_resolved_merge_is_remembered_under_the_historic_id()
+    public void The_answer_is_cached_under_the_id_that_was_asked_for()
     {
         const string survivor = "507f1f77bcf86cd799439099";
         var client = FakeClient.Answering(($"/{Oid}", survivor));
