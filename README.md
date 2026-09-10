@@ -332,10 +332,20 @@ value, into the elements of a sequence and into the values of a dictionary, so a
 under a section (`mail.smtp`), inside a list element (`tenants[].actimed_cust_ids`) or under
 a dictionary value is filled too.
 
+A section declared as a collection *interface* — `IList<T>`, `IReadOnlyList<T>`,
+`ICollection<T>`, `IEnumerable<T>`, `ISet<T>`, `IDictionary<K,V>`, `IReadOnlyDictionary<K,V>`
+— is filled with the obvious concrete type. Any other interface-typed section stays null:
+picking an implementation there would be a decision for the consumer, not for this library.
+
 What it leaves alone: **strings**, because a null string means "not configured" and an empty
-one does not; value types, which are never null; properties without a setter; types with no
-parameterless constructor, which it cannot build; dictionary *keys*; and a list element
-written as a bare `-`, which is an empty entry rather than an empty section.
+one does not; properties without a setter; types with no parameterless constructor, which it
+cannot build; dictionary *keys*; and a list element written as a bare `-`, which is an empty
+entry rather than an empty section.
+
+Also left alone, and the reason is *not* "it cannot be null": a `Nullable<T>` such as `int?`
+is a value type that can be null, and a scalar written as `retries:` does lose its declared
+default. There is nothing to restore it from, and null on a nullable scalar is a legitimate
+value the way it is for a string.
 
 Filling stops at 64 levels. That guards a config *type* whose shape is unbounded — `class A`
 holding a `B` that holds an `A` — which the cycle check on instances cannot catch, because

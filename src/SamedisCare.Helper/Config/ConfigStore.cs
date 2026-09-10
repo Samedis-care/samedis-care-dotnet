@@ -105,11 +105,18 @@ public static class ConfigStore
     /// whose type has a public parameterless constructor, plus arrays (created empty). It
     /// then walks into the value, into the elements of a sequence and into the values of a
     /// dictionary, so a null nested under a section, inside a list element or under a
-    /// dictionary value is filled too. What it deliberately leaves alone: strings, because a
-    /// null string means "not configured" and an empty one does not; value types, which are
-    /// never null in the first place; properties without a setter; types with no parameterless
-    /// constructor, which it cannot construct; a dictionary <em>key</em>; and a list element
-    /// written as a bare <c>-</c>, which is an empty entry rather than an empty section.
+    /// dictionary value is filled too. A section declared as a <em>collection</em> interface
+    /// gets the obvious concrete type; any other interface-typed section stays null, because
+    /// picking an implementation there is a decision for the consumer.
+    /// What it deliberately leaves alone: strings, because a null string means "not
+    /// configured" and an empty one does not; properties without a setter; types with no
+    /// parameterless constructor, which it cannot construct; a dictionary <em>key</em>; and a
+    /// list element written as a bare <c>-</c>, which is an empty entry rather than an empty
+    /// section. Also left alone, and worth naming because the reason is not "it cannot be
+    /// null": a <see cref="Nullable{T}"/> such as <c>int?</c> is a value type that <em>can</em>
+    /// be null, and a scalar written as <c>retries:</c> does lose its declared default --
+    /// there is nothing to restore it from, and null on a nullable scalar is a legitimate
+    /// value the way it is for a string.
     /// Filling stops at <see cref="MaxDepth"/>.
     /// </para>
     /// </remarks>
@@ -203,9 +210,50 @@ public static class ConfigStore
                 ? Array.CreateInstance(type.GetElementType()!, 0)
                 : null;
 
-        if (type.IsAbstract || type.IsInterface) return null;
+        if (type.IsInterface) return CreateForCollectionInterface(type);
+        if (type.IsAbstract) return null;
         if (type.GetConstructor(Type.EmptyTypes) is null) return null;
 
         return Activator.CreateInstance(type);
+    }
+
+    /// <summary>
+    /// Picks the obvious concrete type for a section declared as a collection interface.
+    /// </summary>
+    /// <remarks>
+    /// Without this an <c>IList&lt;T&gt;</c> section stayed null and the caller got the exact
+    /// NullReferenceException this class exists to remove -- an incomplete fix is worse than a
+    /// documented gap here, because the doc lists the excluded cases and a reader would not
+    /// read "types with no parameterless constructor" as covering an interface. Only the
+    /// collection interfaces are mapped: for those the choice is obvious and no caller can
+    /// tell the difference, whereas guessing an implementation for an arbitrary
+    /// interface-typed section would be a decision that belongs to the consumer.
+    /// </remarks>
+    private static object? CreateForCollectionInterface(Type type)
+    {
+        if (!type.IsGenericType) return null;
+
+        var args = type.GetGenericArguments();
+        var definition = type.GetGenericTypeDefinition();
+
+        if (args.Length == 1)
+        {
+            if (definition == typeof(ISet<>))
+                return Activator.CreateInstance(typeof(HashSet<>).MakeGenericType(args));
+
+            if (definition == typeof(IList<>)
+                || definition == typeof(ICollection<>)
+                || definition == typeof(IEnumerable<>)
+                || definition == typeof(IReadOnlyList<>)
+                || definition == typeof(IReadOnlyCollection<>))
+                return Activator.CreateInstance(typeof(List<>).MakeGenericType(args));
+        }
+        else if (args.Length == 2
+                 && (definition == typeof(IDictionary<,>) || definition == typeof(IReadOnlyDictionary<,>)))
+        {
+            return Activator.CreateInstance(typeof(Dictionary<,>).MakeGenericType(args));
+        }
+
+        return null;
     }
 }
