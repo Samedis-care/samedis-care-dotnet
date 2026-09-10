@@ -327,12 +327,20 @@ the empty spelling agrees. Pass `fillNullSections: false` to see the file as it 
 
 What it fills: any readable and writable reference-typed property that is null and whose
 type has a public parameterless constructor, plus arrays, created empty. It walks into the
-value and into the elements of anything enumerable, so a null nested under a section
-(`mail.smtp`) or inside a list element (`tenants[].actimed_cust_ids`) is filled too.
+value, into the elements of a sequence and into the values of a dictionary, so a null nested
+under a section (`mail.smtp`), inside a list element (`tenants[].actimed_cust_ids`) or under
+a dictionary value is filled too.
 
 What it leaves alone: **strings**, because a null string means "not configured" and an empty
-one does not; value types, which are never null; properties without a setter; and types with
-no parameterless constructor, which it cannot build.
+one does not; value types, which are never null; properties without a setter; types with no
+parameterless constructor, which it cannot build; dictionary *keys*; and a list element
+written as a bare `-`, which is an empty entry rather than an empty section.
+
+Filling stops at 64 levels. That guards a config *type* whose shape is unbounded — `class A`
+holding a `B` that holds an `A` — which the cycle check on instances cannot catch, because
+each fill creates a fresh object it has never seen. Without the cap that shape overflowed the
+stack on an entirely empty config file, and a `StackOverflowException` cannot be caught: the
+process died silently, which is worse than the `NullReferenceException` this replaces.
 
 A tool that keeps its own loader can apply it to an object it deserialized itself:
 

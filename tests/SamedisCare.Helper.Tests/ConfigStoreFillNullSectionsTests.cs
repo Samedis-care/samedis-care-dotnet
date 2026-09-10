@@ -179,3 +179,71 @@ public class ConfigStoreFillNullSectionsTests
         node.Auth.Should().NotBeNull();
     }
 }
+
+/// <summary>
+/// Termination and reach of the walk. Both cases here were review findings on the release PR:
+/// the reference-identity set only stops an already-cyclic <em>instance</em> graph, and
+/// "walks into the elements of anything enumerable" was not true for a dictionary.
+/// </summary>
+public class ConfigStoreWalkTerminationTests
+{
+    private class A { public B? B { get; set; } }
+    private class B { public A? A { get; set; } }
+    private class MutualCfg { public A? Root { get; set; } }
+
+    // Every CreateDefault hands back a fresh instance the "seen" set has never seen, so
+    // A -> B -> A built itself forever. Measured before the fix: "Stack overflow." inside
+    // Walk, on an *empty* config file -- and a StackOverflowException cannot be caught, so
+    // the process died without a message. That is strictly worse than the
+    // NullReferenceException this whole change exists to remove.
+    [Fact]
+    public void A_mutually_referencing_config_type_terminates()
+    {
+        var act = () => ConfigStore.Parse<MutualCfg>("", ignoreUnmatchedProperties: true);
+
+        act.Should().NotThrow();
+    }
+
+    [Fact]
+    public void A_mutually_referencing_config_type_still_gets_its_first_level()
+    {
+        var cfg = ConfigStore.Parse<MutualCfg>("", ignoreUnmatchedProperties: true);
+
+        cfg.Root.Should().NotBeNull("the shape being unbounded is no reason to hand back a null section");
+    }
+
+    private class Inner { public int Port { get; set; } }
+    private class Section { public Inner Inner { get; set; } = new(); }
+    private class DictCfg { public Dictionary<string, Section> Targets { get; set; } = new(); }
+    private class ListCfg { public List<Section> Items { get; set; } = new(); }
+
+    // A dictionary enumerates as KeyValuePair<,>, which is a value type, so the values were
+    // never reached. Measured: Targets["a"].Inner came back null while the same shape in a
+    // List came back filled.
+    [Fact]
+    public void A_null_under_a_dictionary_value_is_filled()
+    {
+        var cfg = ConfigStore.Parse<DictCfg>("targets:\n  a:\n    inner:\n", ignoreUnmatchedProperties: true);
+
+        cfg.Targets["a"].Inner.Should().NotBeNull();
+    }
+
+    [Fact]
+    public void A_null_under_a_list_element_is_filled()
+    {
+        var cfg = ConfigStore.Parse<ListCfg>("items:\n  - inner:\n", ignoreUnmatchedProperties: true);
+
+        cfg.Items[0].Inner.Should().NotBeNull();
+    }
+
+    // Documented rather than fixed: an element written as a bare "-" stays null. There is no
+    // section to default there -- the author wrote an empty list entry, which is a different
+    // thing from an empty section, and silently turning it into an object would hide the typo.
+    [Fact]
+    public void A_null_list_element_is_left_as_it_was_written()
+    {
+        var cfg = ConfigStore.Parse<ListCfg>("items:\n  -\n", ignoreUnmatchedProperties: true);
+
+        cfg.Items.Should().ContainSingle().Which.Should().BeNull();
+    }
+}
