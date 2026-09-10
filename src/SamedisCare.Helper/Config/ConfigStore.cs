@@ -1,3 +1,5 @@
+using System.Collections;
+using System.Reflection;
 using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.NamingConventions;
 
@@ -32,19 +34,26 @@ public static class ConfigStore
     /// <returns>The deserialized config, or a new instance when the file is empty.</returns>
     /// <exception cref="FileNotFoundException">The file does not exist.</exception>
     /// <exception cref="YamlDotNet.Core.YamlException">The file is not valid YAML, or has an unknown key while <paramref name="ignoreUnmatchedProperties"/> is false.</exception>
-    public static T Load<T>(string path, bool ignoreUnmatchedProperties) where T : new()
+    /// <param name="fillNullSections">
+    /// Whether a section that is present but empty is turned back into defaults. On by
+    /// default; see <see cref="FillNullSections{T}"/> for what that means and why the
+    /// default is not the other way round.
+    /// </param>
+    public static T Load<T>(string path, bool ignoreUnmatchedProperties, bool fillNullSections = true)
+        where T : new()
     {
         if (!File.Exists(path))
             throw new FileNotFoundException($"Config file not found: {path}", path);
 
-        return Parse<T>(File.ReadAllText(path), ignoreUnmatchedProperties);
+        return Parse<T>(File.ReadAllText(path), ignoreUnmatchedProperties, fillNullSections);
     }
 
     /// <summary>
     /// Same as <see cref="Load{T}"/> but from a string, so a caller can validate config
     /// without writing a file. Used by the tests.
     /// </summary>
-    public static T Parse<T>(string yaml, bool ignoreUnmatchedProperties) where T : new()
+    public static T Parse<T>(string yaml, bool ignoreUnmatchedProperties, bool fillNullSections = true)
+        where T : new()
     {
         var builder = new DeserializerBuilder()
             .WithNamingConvention(UnderscoredNamingConvention.Instance);
@@ -54,6 +63,114 @@ public static class ConfigStore
 
         // An empty or whitespace-only file deserializes to null; the tools all treated
         // that as "defaults", so keep that.
-        return builder.Build().Deserialize<T>(yaml) ?? new T();
+        var config = builder.Build().Deserialize<T>(yaml) ?? new T();
+
+        // Guarded on IsValueType rather than constraining T to class: tightening the
+        // constraint would be a breaking change for a consumer outside this repository, and
+        // walking a boxed struct would mutate the box and throw the result away -- worse than
+        // doing nothing. Every config type in the family is a class.
+        if (fillNullSections && !typeof(T).IsValueType && config is { } node)
+            Walk(node, new HashSet<object>(ReferenceEqualityComparer.Instance));
+
+        return config;
+    }
+
+    /// <summary>
+    /// Replaces every null section in a loaded config with a default instance, so a section
+    /// that is present but empty means the same as one that is absent.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// YamlDotNet does not treat <c>logging:</c> with nothing under it like a missing key: it
+    /// <em>sets</em> the property, and the value it sets is null, overwriting the initialiser
+    /// on the config class. A half-filled config.yml is a normal state while setting a tool up
+    /// or after commenting a block out, and every tool dereferenced its sections without a
+    /// null check, so the result was a bare <see cref="NullReferenceException"/> naming
+    /// nothing. See samedis-care-issues#2884 and #2885.
+    /// </para>
+    /// <para>
+    /// This is not a hidden default, which is why it is on by default and
+    /// <c>ignoreUnmatchedProperties</c> is not: a missing section already means defaults, so
+    /// there is no third behaviour to choose between — only the question of whether the two
+    /// spellings agree. Pass <c>fillNullSections: false</c> if a caller genuinely needs to see
+    /// which sections the file omitted.
+    /// </para>
+    /// <para>
+    /// Exposed publicly because two tools (spl-sync, fluke-sync) keep their own loader for
+    /// DPAPI-encrypted secrets and need to apply this to an object they deserialized
+    /// themselves — before they touch it, since their decrypt step dereferences sections.
+    /// </para>
+    /// <para>
+    /// What it fills: any readable and writable reference-typed property that is null and
+    /// whose type has a public parameterless constructor, plus arrays (created empty). It
+    /// then walks into the value, and into the elements of anything enumerable, so a null
+    /// nested under a section or inside a list element is filled too. What it deliberately
+    /// leaves alone: strings, because a null string means "not configured" and an empty one
+    /// does not; value types, which are never null in the first place; properties without a
+    /// setter; and types with no parameterless constructor, which it cannot construct.
+    /// </para>
+    /// </remarks>
+    /// <returns>The same instance, for chaining.</returns>
+    public static T FillNullSections<T>(T config) where T : class
+    {
+        Walk(config, new HashSet<object>(ReferenceEqualityComparer.Instance));
+        return config;
+    }
+
+    private static void Walk(object node, HashSet<object> seen)
+    {
+        // A config type may point back at itself; without this the walk would not terminate.
+        if (!seen.Add(node)) return;
+
+        if (node is IEnumerable sequence)
+        {
+            foreach (var item in sequence)
+                if (ShouldWalk(item))
+                    Walk(item!, seen);
+            return;
+        }
+
+        foreach (var property in node.GetType().GetProperties(BindingFlags.Public | BindingFlags.Instance))
+        {
+            if (!property.CanRead || !property.CanWrite) continue;
+            if (property.GetIndexParameters().Length > 0) continue;
+            if (property.PropertyType.IsValueType || property.PropertyType == typeof(string)) continue;
+
+            var value = property.GetValue(node);
+
+            if (value is null)
+            {
+                value = CreateDefault(property.PropertyType);
+                if (value is null) continue;
+                property.SetValue(node, value);
+            }
+
+            if (ShouldWalk(value))
+                Walk(value, seen);
+        }
+    }
+
+    /// <summary>
+    /// Framework types are not walked into -- only their elements, handled above. Walking a
+    /// BCL object's properties would be pointless at best and, for anything with a getter
+    /// that does real work, actively harmful.
+    /// </summary>
+    private static bool ShouldWalk(object? value)
+        => value is not null
+           && value is not string
+           && !value.GetType().IsValueType
+           && (value is IEnumerable || value.GetType().Namespace?.StartsWith("System", StringComparison.Ordinal) != true);
+
+    private static object? CreateDefault(Type type)
+    {
+        if (type.IsArray)
+            return type.GetArrayRank() == 1
+                ? Array.CreateInstance(type.GetElementType()!, 0)
+                : null;
+
+        if (type.IsAbstract || type.IsInterface) return null;
+        if (type.GetConstructor(Type.EmptyTypes) is null) return null;
+
+        return Activator.CreateInstance(type);
     }
 }

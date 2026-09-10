@@ -302,6 +302,49 @@ monitor gone blind looks exactly like a run with no problems.
 `Logfile_30.08.2026.log` on one host and `Logfile_2026-08-30.log` on the next — and the monitor
 carried six candidate date formats to find either.
 
+## An empty config section means defaults
+
+`ConfigStore.Load` fills every section that came back null before it returns, so a section
+header with nothing under it behaves the same as one that is absent:
+
+```yaml
+auth:
+  # noch nichts eingetragen
+samedis:
+  uri: "https://sync.samedis.care"
+```
+
+Without that, `config.Auth.Uri` throws. YamlDotNet does not treat an empty section like a
+missing key — it *sets* the property, and the value it sets is null, overwriting the
+initialiser on the config class. So the two spellings behaved differently, and since a
+half-filled config.yml is the normal state while setting a tool up, the tools died on a bare
+`NullReferenceException` naming nothing. The care each of them takes over YAML *syntax*
+errors — line, column, a hint about Windows paths — had no counterpart here.
+
+This is on by default, unlike `ignoreUnmatchedProperties`, because there is no third
+behaviour to pick: a missing section already means defaults, so the only question is whether
+the empty spelling agrees. Pass `fillNullSections: false` to see the file as it is.
+
+What it fills: any readable and writable reference-typed property that is null and whose
+type has a public parameterless constructor, plus arrays, created empty. It walks into the
+value and into the elements of anything enumerable, so a null nested under a section
+(`mail.smtp`) or inside a list element (`tenants[].actimed_cust_ids`) is filled too.
+
+What it leaves alone: **strings**, because a null string means "not configured" and an empty
+one does not; value types, which are never null; properties without a setter; and types with
+no parameterless constructor, which it cannot build.
+
+A tool that keeps its own loader can apply it to an object it deserialized itself:
+
+```csharp
+var cfg = MyDeserializer.Deserialize<AppConfig>(yaml);
+ConfigStore.FillNullSections(cfg);   // before anything dereferences a section
+```
+
+`spl-sync` and `fluke-sync` need exactly that: their `ConfigStore.Load` decrypts DPAPI
+secrets via `cfg.Auth.ClientSecret` before returning, so an empty `auth:` throws inside the
+loader itself.
+
 ## Sending mail
 
 One call, three transports, chosen by configuration:
