@@ -81,11 +81,32 @@ public static class Cascades
     /// </param>
     /// <remarks>
     /// <para>
-    /// <b>external_id works here, but not through the via route.</b> The field exists on the
-    /// model and is writable on the sync endpoint, and because the gridfilter whitelist is
-    /// simply every field of the document, it can be filtered on. What is missing is
-    /// <c>via/external_id</c>: that route is mounted only on the MDM endpoint for device
-    /// models. So this step uses a gridfilter, unlike every other cascade here.
+    /// <b>external_id resolves through a gridfilter here, not through the via route.</b>
+    /// For device models the via route is not mounted on the tenant endpoint at all, only
+    /// under <c>namespace :mdm</c>, so the gridfilter is the only thing a sync can use. It
+    /// is also the only form that works in enterprise mode, where no <c>via</c> route is
+    /// mounted on any resource at all — so even once samedis-care-issues#2347 puts the route
+    /// on the tenant endpoint, switching this step to
+    /// <see cref="ResourceLookup.ByUniqueField"/> would buy nothing and would make the scope
+    /// harder to see, since the two paths carry it differently.
+    /// </para>
+    /// <para>
+    /// <b>A device model merged away is gone, and no key here brings it back.</b> The merge
+    /// hard-destroys the source record: its inventories move to the survivor, and its title,
+    /// manufacturer and <c>external_id</c> die with it. Nothing records where it went, so
+    /// <see cref="ResourceLookup.ById"/> on a historic id is a 404 too — resolving it to the
+    /// survivor is the work in samedis-care-issues#2347 and is not in production.
+    /// <para>
+    /// What is certain is narrower than "every step misses": the destroyed record's own keys
+    /// are gone — its <c>external_id</c>, and the pair <c>(tenant_id, external_id)</c>. The
+    /// other steps may well still land on the survivor, because a merge usually
+    /// de-duplicates the same physical model onto the public entry and the title,
+    /// manufacturer and regulatory keys this cascade sends come from the source <i>row</i>,
+    /// not from the destroyed record.
+    /// </para>
+    /// Either way the operational rule is the same: a caller that creates on a miss can
+    /// recreate what an operator deliberately merged away, so it must not do that for a
+    /// record that already has a model.
     /// </para>
     /// <para>
     /// It is also the weaker key for this resource. Device models are largely public master

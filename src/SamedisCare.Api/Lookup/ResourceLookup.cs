@@ -78,11 +78,23 @@ public sealed class ResourceLookup
     }
 
     /// <summary>
-    /// Fetches the record directly by its Samedis id.
+    /// Fetches the record directly by its Samedis id, and answers with <b>the id the server
+    /// returned</b>, which is not always the one that was asked for.
     /// <para>
     /// Values that are not a well-formed ObjectId are rejected without a request: source
     /// data routinely carries a placeholder or free text in an id column, and asking the
     /// API about it only costs a round trip.
+    /// </para>
+    /// <para>
+    /// Today the two are always the same, and the distinction is here so a caller keeps the
+    /// server's answer rather than the value it passed in. It matters for device models,
+    /// which can be merged: the merge hard-destroys the source and records nowhere that it
+    /// existed, so a historic id is a plain 404 and this returns null — <b>not</b> the record
+    /// that absorbed it. A caller must not read that miss as "not imported yet", or it
+    /// recreates a model somebody deliberately merged away. Resolving a merged-away id to
+    /// the survivor is the work in samedis-care-issues#2347; once it is in production, the
+    /// returned id will differ from the requested one for exactly that case, and comparing
+    /// the two becomes a reliable merge signal. Until then, code against the 404.
     /// </para>
     /// </summary>
     public string? ById(string? id)
@@ -115,9 +127,10 @@ public sealed class ResourceLookup
     /// Two constraints that are not visible from the specs under doc/v4, which document
     /// none of this:
     /// <list type="bullet">
-    /// <item>The route has to be mounted on the resource. It is not mounted everywhere —
-    /// notably <b>not</b> on the sync endpoint for device models, which is why
-    /// <see cref="Cascades.DeviceModel"/> resolves through regulatory identifiers instead.</item>
+    /// <item>The route has to be mounted on the resource, and it is not mounted
+    /// everywhere. For device models it is not on the tenant endpoint at all — only under
+    /// <c>namespace :mdm</c> — so a sync resolves them with a gridfilter on
+    /// <c>external_id</c> instead.</item>
     /// <item>Departments carry no <c>external_id</c> at all, so no via name works there
     /// even though the route is mounted.</item>
     /// </list>

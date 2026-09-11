@@ -160,8 +160,20 @@ Three traps:
   `external_id` and the controller does not permit one, so a `code` sent under that key is
   silently dropped. Departments resolve by title.
 - **`device_models` has no via route on the endpoint a sync uses.** It exists only on the
-  MDM endpoint (`.../tenants/{id}/mdm/device_models`). `external_id` is still writable and
-  still filterable — so the cascade matches it with a gridfilter instead.
+  MDM endpoint (`.../tenants/{id}/mdm/device_models`) — `config/routes/v4.rb:317`, inside
+  `namespace :mdm`; the tenant route at line 235 mounts `concerns: :changelogs` and nothing
+  else. `external_id` is still writable and still filterable, so the cascade matches it with
+  a gridfilter instead. That is also the only form that works in enterprise mode, where no
+  via route is mounted on anything.
+- **A merged-away device model is unreachable by id, permanently.** Device models can be
+  merged (`Catalog#merge_device_model_not_self`), and the merge **hard-destroys** the source:
+  its inventories move to the survivor, and its title, manufacturer and `external_id` die
+  with it. Nothing records where it went — `Catalog::VIA_FIELDS` is `%i[external_id]` and no
+  `merged_catalog*` field exists on the model — so a historic id is a plain 404 and
+  `ResourceLookup.ById` returns null, not the survivor. A sync that treats that miss as "not
+  imported yet" will create a duplicate of a model somebody deliberately merged away. See
+  [samedis-care-issues#2347](https://github.com/Samedis-care/samedis-care-issues/issues/2347)
+  for the resolution work; until it is in production, code against the 404.
 
 ### The enterprise API has no via route at all
 
@@ -290,6 +302,67 @@ monitor gone blind looks exactly like a run with no problems.
 `ToShortDateString()`, which follows the machine's culture, so the same tool produced
 `Logfile_30.08.2026.log` on one host and `Logfile_2026-08-30.log` on the next — and the monitor
 carried six candidate date formats to find either.
+
+## An empty config section means defaults
+
+`ConfigStore.Load` fills every section that came back null before it returns, so a section
+header with nothing under it behaves the same as one that is absent:
+
+```yaml
+auth:
+  # noch nichts eingetragen
+samedis:
+  uri: "https://sync.samedis.care"
+```
+
+Without that, `config.Auth.Uri` throws. YamlDotNet does not treat an empty section like a
+missing key — it *sets* the property, and the value it sets is null, overwriting the
+initialiser on the config class. So the two spellings behaved differently, and since a
+half-filled config.yml is the normal state while setting a tool up, the tools died on a bare
+`NullReferenceException` naming nothing. The care each of them takes over YAML *syntax*
+errors — line, column, a hint about Windows paths — had no counterpart here.
+
+This is on by default, unlike `ignoreUnmatchedProperties`, because there is no third
+behaviour to pick: a missing section already means defaults, so the only question is whether
+the empty spelling agrees. Pass `fillNullSections: false` to see the file as it is.
+
+What it fills: any readable and writable reference-typed property that is null and whose
+type has a public parameterless constructor, plus arrays, created empty. It walks into the
+value, into the elements of a sequence and into the values of a dictionary, so a null nested
+under a section (`mail.smtp`), inside a list element (`tenants[].actimed_cust_ids`) or under
+a dictionary value is filled too.
+
+A section declared as a collection *interface* — `IList<T>`, `IReadOnlyList<T>`,
+`ICollection<T>`, `IEnumerable<T>`, `ISet<T>`, `IDictionary<K,V>`, `IReadOnlyDictionary<K,V>`
+— is filled with the obvious concrete type. Any other interface-typed section stays null:
+picking an implementation there would be a decision for the consumer, not for this library.
+
+What it leaves alone: **strings**, because a null string means "not configured" and an empty
+one does not; properties without a setter; types with no parameterless constructor, which it
+cannot build; dictionary *keys*; and a list element written as a bare `-`, which is an empty
+entry rather than an empty section.
+
+Also left alone, and the reason is *not* "it cannot be null": a `Nullable<T>` such as `int?`
+is a value type that can be null, and a scalar written as `retries:` does lose its declared
+default. There is nothing to restore it from, and null on a nullable scalar is a legitimate
+value the way it is for a string.
+
+Filling stops at 64 levels. That guards a config *type* whose shape is unbounded — `class A`
+holding a `B` that holds an `A` — which the cycle check on instances cannot catch, because
+each fill creates a fresh object it has never seen. Without the cap that shape overflowed the
+stack on an entirely empty config file, and a `StackOverflowException` cannot be caught: the
+process died silently, which is worse than the `NullReferenceException` this replaces.
+
+A tool that keeps its own loader can apply it to an object it deserialized itself:
+
+```csharp
+var cfg = MyDeserializer.Deserialize<AppConfig>(yaml);
+ConfigStore.FillNullSections(cfg);   // before anything dereferences a section
+```
+
+`spl-sync` and `fluke-sync` need exactly that: their `ConfigStore.Load` decrypts DPAPI
+secrets via `cfg.Auth.ClientSecret` before returning, so an empty `auth:` throws inside the
+loader itself.
 
 ## Sending mail
 
