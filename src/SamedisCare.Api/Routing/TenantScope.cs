@@ -18,6 +18,13 @@ public static class TenantScope
     /// Enterprise, client-scoped (the mirror of the normal world, and the sync target):
     /// <c>/api/{version}/enterprise/tenants/{tenantId}/clients/{clientId}/{resource}</c>
     /// </summary>
+    /// <remarks>
+    /// <see cref="KeyLookup.Filter"/>, not <see cref="KeyLookup.Route"/>: the enterprise API
+    /// does mount <c>via/:via_name</c> on <c>inventories</c>, <c>device_locations</c>,
+    /// <c>buildings</c> and <c>floors</c>, but on none of its other resources -- not on
+    /// <c>issues</c>, <c>incidents</c> or <c>departments</c>. The mechanism is one per scope,
+    /// so it has to be the one that answers on all of them.
+    /// </remarks>
     public static ITenantScope Enterprise(string tenantId, string clientId, string apiVersion = DefaultApiVersion)
         => new Scope(apiVersion, tenantId, Guard(clientId, nameof(clientId)), isEnterprise: true, KeyLookup.Filter);
 
@@ -25,6 +32,9 @@ public static class TenantScope
     /// Enterprise, cross-facility aggregate (mostly read-only):
     /// <c>/api/{version}/enterprise/tenants/{tenantId}/{resource}</c>
     /// </summary>
+    /// <remarks>
+    /// Resolves keys by gridfilter for the same reason as <see cref="Enterprise"/>.
+    /// </remarks>
     public static ITenantScope EnterpriseTenant(string tenantId, string apiVersion = DefaultApiVersion)
         => new Scope(apiVersion, tenantId, clientId: null, isEnterprise: true, KeyLookup.Filter);
 

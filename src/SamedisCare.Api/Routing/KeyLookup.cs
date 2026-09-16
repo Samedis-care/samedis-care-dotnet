@@ -11,10 +11,14 @@ namespace SamedisCare.Api.Routing;
 /// decision each call site makes.
 /// </para>
 /// <para>
-/// Verified on 2026-08-30 against app.samedis.test: <c>via/:via_name/:via_value</c> is
-/// mounted on 18 resources of the tenant API (config/routes/v4.rb) and on none of the
-/// enterprise ones (config/routes/v4_enterprise.rb carries only <c>concerns: :changelogs</c>).
-/// The same inventory answered 200 through the route under the tenant path and 404 under the
+/// <c>via/:via_name/:via_value</c> is mounted on 18 resources of the tenant API
+/// (config/routes/v4.rb) and, since the payload-parity change of 2026-09-02, on four of the
+/// enterprise ones (config/routes/v4_enterprise.rb): <c>inventories</c> and
+/// <c>device_locations</c> with show/update/destroy, <c>buildings</c> and <c>floors</c> with
+/// show only. <c>issues</c>, <c>incidents</c>, <c>departments</c> and every other enterprise
+/// resource have no via route, so the one mechanism that answers everywhere in that scope is
+/// the gridfilter. Verified on 2026-08-30 against app.samedis.test, before that change: the
+/// same inventory answered 200 through the route under the tenant path and 404 under the
 /// enterprise path, while a gridfilter on <c>external_id</c> found it under both.
 /// </para>
 /// </remarks>
@@ -28,7 +32,8 @@ public enum KeyLookup
 
     /// <summary>
     /// Through a gridfilter on the field. The fallback wherever the route is not mounted --
-    /// the whole enterprise API, and the device-model sync endpoint of the tenant API.
+    /// the enterprise API apart from its four via-capable resources, and the device-model
+    /// sync endpoint of the tenant API.
     /// </summary>
     /// <remarks>
     /// Weaker in one respect worth knowing: the route answers about a field the model

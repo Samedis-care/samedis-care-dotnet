@@ -8,9 +8,11 @@ namespace SamedisCare.Api.Tests;
 /// <summary>
 /// Whether a record is found through the server's find-by-field route or through a gridfilter
 /// is a property of the backend, not of the call site. The tenant API mounts
-/// <c>via/:via_name/:via_value</c> on 18 resources; the enterprise API mounts it on none.
-/// Verified against config/routes and live: the same inventory answered 200 through the route
-/// under the tenant path, 404 under the enterprise path, and was found by gridfilter in both.
+/// <c>via/:via_name/:via_value</c> on 18 resources; the enterprise API mounts it on four
+/// (<c>inventories</c>, <c>device_locations</c>, <c>buildings</c>, <c>floors</c>) and on
+/// nothing else, so the mechanism for that scope stays the gridfilter. Verified against
+/// config/routes and live: the same inventory answered 200 through the route under the tenant
+/// path, 404 under the enterprise path, and was found by gridfilter in both.
 /// </summary>
 public class KeyLookupTests
 {
@@ -42,7 +44,9 @@ public class KeyLookupTests
         lookup.ByUniqueField("external_id", "1400000").Should().Be("inv-1");
 
         var asked = client.Requests.Single();
-        asked.Should().NotContain("/via/", "the route is mounted on no enterprise resource");
+        asked.Should().NotContain("/via/",
+                                  "the enterprise scope resolves keys by gridfilter, the only "
+                                + "lookup all of its resources offer");
         asked.Should().Contain("gridfilter=");
         asked.Should().Contain("external_id");
     }

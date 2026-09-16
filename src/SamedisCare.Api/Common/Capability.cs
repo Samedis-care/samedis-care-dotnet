@@ -36,7 +36,8 @@ public class ApiEnvelope
     /// <c>meta.msg.error = record_not_found_error</c>. Both are 404, and without this
     /// distinction a lookup against an endpoint that does not exist reads as "the record is
     /// not there" -- verified against the enterprise API, where <c>via/external_id</c> is
-    /// mounted on no resource at all and every such lookup would silently resolve to null.
+    /// mounted on four resources only, so the same lookup on any of its other resources
+    /// would silently resolve to null.
     /// </remarks>
     public static bool HasEnvelope(string? body)
     {

@@ -175,12 +175,16 @@ Three traps:
   [samedis-care-issues#2347](https://github.com/Samedis-care/samedis-care-issues/issues/2347)
   for the resolution work; until it is in production, code against the 404.
 
-### The enterprise API has no via route at all
+### The enterprise API mounts the via route on four resources only
 
-`via/:via_name/:via_value` is mounted on **18 resources of the tenant API** and on **none of
-the enterprise ones** — `config/routes/v4_enterprise.rb` carries only `concerns: :changelogs`.
-Verified live on 2026-08-30: the same inventory answered 200 through the route under the
-tenant path, 404 under the enterprise path, and was found by gridfilter under both.
+`via/:via_name/:via_value` is mounted on **18 resources of the tenant API** and, since the
+payload-parity change of 2026-09-02, on **four of the enterprise ones**
+(`config/routes/v4_enterprise.rb`): `inventories` and `device_locations` with
+show/update/destroy, `buildings` and `floors` with show only. `issues`, `incidents`,
+`departments` and the rest have none. Verified live on 2026-08-30, before that change: the
+same inventory answered 200 through the route under the tenant path, 404 under the enterprise
+path, and was found by gridfilter under both — and the gridfilter is still the only key lookup
+that answers on every enterprise resource.
 
 That is why the mechanism is a property of the scope rather than a decision each call site
 makes:
