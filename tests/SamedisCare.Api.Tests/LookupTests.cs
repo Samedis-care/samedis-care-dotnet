@@ -548,14 +548,52 @@ public class RegulatoryTests
         => Regulatory.DeviceIdentifiers.Should()
                      .Equal("udi_id", "eudamed_id", "emtec_id", "emtec_code", "eudamed_di");
 
-    // These classify rather than identify, so they must not be offered as cascade keys —
-    // but they stay filterable, which is why they are still in Labels.
+    // These classify rather than identify, so they are not device identifiers — two of them
+    // are still allowed as a configured lookup key, see LookupKeys below.
     [Fact]
     public void Nomenclature_codes_are_not_device_identifiers()
     {
         Regulatory.NomenclatureCodes.Should().Equal("emdn_code", "umdns_code", "gmdn_code");
         Regulatory.DeviceIdentifiers.Should().NotIntersectWith(Regulatory.NomenclatureCodes);
         Regulatory.NomenclatureCodes.Should().BeSubsetOf(Regulatory.Labels);
+    }
+
+    [Fact]
+    public void Lookup_keys_are_the_device_identifiers_plus_two_nomenclature_codes()
+        => Regulatory.LookupKeys.Should()
+                     .Equal("udi_id", "eudamed_id", "emtec_id", "emtec_code", "eudamed_di",
+                            "emdn_code", "gmdn_code");
+
+    // Allowing a key the server rejects would be worse than rejecting one it accepts: the
+    // server answers an unknown label with an empty result set, which reads as "no such
+    // device" and makes a find-or-create write a duplicate.
+    [Fact]
+    public void Every_lookup_key_is_a_label_the_server_accepts()
+        => Regulatory.LookupKeys.Should().BeSubsetOf(Regulatory.Labels);
+
+    [Theory]
+    [InlineData("udi_id")]
+    [InlineData("eudamed_id")]
+    [InlineData("eudamed_di")]
+    [InlineData("emtec_id")]
+    [InlineData("emtec_code")]
+    [InlineData("emdn_code")]
+    [InlineData("gmdn_code")]
+    public void Every_lookup_key_is_accepted_as_one(string label)
+        => Regulatory.RequireLookupKey(label).Should().Be(label);
+
+    // All of these pass Require — the server would run the filter. They are rejected here
+    // because the answer would not identify a device: eu_mdr matches a whole risk class.
+    [Theory]
+    [InlineData("eu_mdr")]
+    [InlineData("us_fda")]
+    [InlineData("ecri_risk_level")]
+    [InlineData("ce")]
+    [InlineData("umdns_code")]
+    public void A_classification_is_not_a_lookup_key(string label)
+    {
+        Regulatory.Require(label).Should().Be(label);
+        ((Action)(() => Regulatory.RequireLookupKey(label))).Should().Throw<ArgumentException>();
     }
 
     [Fact]

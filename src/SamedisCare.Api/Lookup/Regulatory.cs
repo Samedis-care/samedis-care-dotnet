@@ -50,6 +50,30 @@ public static class Regulatory
                             StringComparer.Ordinal);
 
     /// <summary>
+    /// The labels a caller may configure as a lookup key when resolving a device model,
+    /// in the order they are worth trying: <see cref="DeviceIdentifiers"/> first, then
+    /// <c>emdn_code</c> and <c>gmdn_code</c>.
+    /// <para>
+    /// Narrower than <see cref="Labels"/> on purpose. The server also accepts <c>ce</c> and
+    /// the risk classes, but those describe a device rather than name one: a filter on
+    /// <c>eu_mdr</c> matches thousands of models, and a cascade taking the first of them
+    /// attaches the device to an arbitrary record. That failure is silent — an id comes
+    /// back, it is simply the wrong one — so the check belongs in front of the request,
+    /// not in a reviewer's head.
+    /// </para>
+    /// <para>
+    /// The two nomenclature codes are in despite what <see cref="NomenclatureCodes"/> says
+    /// about them, because <see cref="Cascades.DeviceModel"/> asks every identifier narrowed
+    /// by the title first and records a leftover ambiguity in
+    /// <see cref="ResourceLookup.AmbiguousMatches"/>; a shared code plus a matching title is
+    /// still evidence. <c>umdns_code</c> stays out: it is the coarsest of the three and
+    /// nothing has asked for it.
+    /// </para>
+    /// </summary>
+    public static readonly IReadOnlyList<string> LookupKeys =
+        DeviceIdentifiers.Concat(new[] { "emdn_code", "gmdn_code" }).ToList();
+
+    /// <summary>
     /// Pairs each of <see cref="DeviceIdentifiers"/> with a value from the caller, dropping
     /// the ones with nothing to search for, in the order the identifiers are declared.
     /// A convenience for building the <c>regulatory</c> argument of
@@ -87,5 +111,19 @@ public static class Regulatory
             ? label
             : throw new ArgumentException(
                 $"'{label}' is not a regulatory label the server accepts. Valid: {string.Join(", ", Labels.Order(StringComparer.Ordinal))}.",
+                nameof(label));
+
+    /// <summary>
+    /// Returns the label unchanged, or throws if it is not one of <see cref="LookupKeys"/>.
+    /// The check for a label a caller configured as a lookup key — stricter than
+    /// <see cref="Require"/>, which only asks whether the server would accept it.
+    /// </summary>
+    /// <param name="label">The regulatory label to check.</param>
+    /// <exception cref="ArgumentException">The label does not identify a device model.</exception>
+    public static string RequireLookupKey(string label)
+        => LookupKeys.Contains(label)
+            ? label
+            : throw new ArgumentException(
+                $"'{label}' does not identify a device model and cannot be used as a lookup key. Valid: {string.Join(", ", LookupKeys)}.",
                 nameof(label));
 }
