@@ -272,6 +272,15 @@ The twelve labels are grouped by what they are good for as a key:
 | `Regulatory.NomenclatureCodes` | `emdn_code`, `umdns_code`, `gmdn_code` | no — many models share one code |
 | `Regulatory.Classifications` | `ce`, `ecri_risk_level`, `us_fda`, `eu_mdr` | no — risk classes, not identifiers |
 
+`Regulatory.LookupKeys` is the subset a caller may let a **configuration file** name as a
+lookup key: the device identifiers plus `emdn_code` and `gmdn_code`. `RequireLookupKey`
+checks against it and is the stricter sibling of `Require`, which only asks whether the
+server would run the filter at all. The two nomenclature codes are in because
+`Cascades.DeviceModel` asks every identifier narrowed by the title first and records what
+stays ambiguous; the classifications are out because a filter on `eu_mdr` matches thousands
+of models and the cascade would attach the device to an arbitrary one — an error that
+returns an id rather than an exception, so it has to be caught before the request.
+
 `udi_id` and `eudamed_id` are UDI-DIs and name one model; `emtec_id`/`emtec_code` name one
 emtec catalogue entry; `eudamed_di` is a Basic UDI-DI covering a device family, so it may
 legitimately match several models — hence last.
