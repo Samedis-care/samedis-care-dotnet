@@ -163,8 +163,9 @@ Three traps:
   MDM endpoint (`.../tenants/{id}/mdm/device_models`) — `config/routes/v4.rb:317`, inside
   `namespace :mdm`; the tenant route at line 235 mounts `concerns: :changelogs` and nothing
   else. `external_id` is still writable and still filterable, so the cascade matches it with
-  a gridfilter instead. That is also the only form that works in enterprise mode, where no
-  via route is mounted on anything.
+  a gridfilter instead. That is also the only form that works in enterprise mode: the four
+  via routes the payload-parity change added are client-scoped and device models are not
+  among them, and the aggregate enterprise paths mount none at all.
 - **A merged-away device model is unreachable by id, permanently.** Device models can be
   merged (`Catalog#merge_device_model_not_self`), and the merge **hard-destroys** the source:
   its inventories move to the survivor, and its title, manufacturer and `external_id` die
@@ -175,13 +176,20 @@ Three traps:
   [samedis-care-issues#2347](https://github.com/Samedis-care/samedis-care-issues/issues/2347)
   for the resolution work; until it is in production, code against the 404.
 
-### The enterprise API mounts the via route on four resources only
+### The enterprise API mounts the via route on four client-scoped resources only
 
 `via/:via_name/:via_value` is mounted on **18 resources of the tenant API** and, since the
-payload-parity change of 2026-09-02, on **four of the enterprise ones**
+payload-parity change of 2026-09-02, on **four client-scoped enterprise ones**
 (`config/routes/v4_enterprise.rb`): `inventories` and `device_locations` with
 show/update/destroy, `buildings` and `floors` with show only. `issues`, `incidents`,
-`departments` and the rest have none. Verified live on 2026-08-30, before that change: the
+`departments` and the rest have none.
+
+**Client-scoped is the load-bearing word.** All four sit inside
+`resources :clients … scope module: :clients`. The aggregate block below it —
+`enterprise/tenants/{id}/inventories|issues|…`, what `TenantScope.EnterpriseTenant`
+addresses — carries no via concern at all. So `inventories` answers the route under
+`TenantScope.Enterprise` and the router's 404 under `TenantScope.EnterpriseTenant`, and the
+gridfilter is the only mechanism that answers under both. Verified live on 2026-08-30, before that change: the
 same inventory answered 200 through the route under the tenant path, 404 under the enterprise
 path, and was found by gridfilter under both — and the gridfilter is still the only key lookup
 that answers on every enterprise resource.
@@ -198,9 +206,10 @@ TenantScope.Enterprise(tenantId, clientId)  // KeyLookup.Filter
 sync moved to the enterprise API changes its scope and nothing else. `ByVia` stays available
 where a caller knows the route exists.
 
-`KeyLookup` is deliberately separate from `IsEnterprise`: today the two agree, but one is a
-path family and the other is which routes are mounted, and a release could change either
-without the other.
+`KeyLookup` is deliberately separate from `IsEnterprise`: one is a path family, the other is
+which routes are mounted, and the two have already moved independently — the enterprise API
+gained `via/:via_name` on four client-scoped resources without `KeyLookup` becoming `Route`,
+because everything else that scope reaches still has no such route.
 
 **Why this needed a switch rather than tolerance.** A route that is not mounted answers 404,
 and 404 is the one status that means "no such record". Left alone, every `ByVia` on the

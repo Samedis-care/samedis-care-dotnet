@@ -9,8 +9,10 @@ namespace SamedisCare.Api.Tests;
 /// Whether a record is found through the server's find-by-field route or through a gridfilter
 /// is a property of the backend, not of the call site. The tenant API mounts
 /// <c>via/:via_name/:via_value</c> on 18 resources; the enterprise API mounts it on four
-/// (<c>inventories</c>, <c>device_locations</c>, <c>buildings</c>, <c>floors</c>) and on
-/// nothing else, so the mechanism for that scope stays the gridfilter. Verified against
+/// client-scoped ones (<c>inventories</c>, <c>device_locations</c>, <c>buildings</c>,
+/// <c>floors</c>), on nothing else under <c>clients/</c>, and on nothing at all under the
+/// aggregate enterprise paths -- so the mechanism for either enterprise scope stays the
+/// gridfilter. Verified against
 /// config/routes and live: the same inventory answered 200 through the route under the tenant
 /// path, 404 under the enterprise path, and was found by gridfilter in both.
 /// </summary>

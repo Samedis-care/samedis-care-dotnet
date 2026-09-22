@@ -35,9 +35,12 @@ public class ApiEnvelope
     /// "no such record" carries the full envelope with
     /// <c>meta.msg.error = record_not_found_error</c>. Both are 404, and without this
     /// distinction a lookup against an endpoint that does not exist reads as "the record is
-    /// not there" -- verified against the enterprise API, where <c>via/external_id</c> is
-    /// mounted on four resources only, so the same lookup on any of its other resources
-    /// would silently resolve to null.
+    /// not there" -- verified against the enterprise API on 2026-08-30, when it mounted
+    /// <c>via/external_id</c> on nothing at all. The payload-parity change has since added it
+    /// to four client-scoped resources, which narrows the case but does not remove it: every
+    /// other resource, and every resource on the aggregate enterprise paths, still answers a
+    /// via lookup with the router's bare 404, and without this distinction that reads as
+    /// "the record is not there".
     /// </remarks>
     public static bool HasEnvelope(string? body)
     {

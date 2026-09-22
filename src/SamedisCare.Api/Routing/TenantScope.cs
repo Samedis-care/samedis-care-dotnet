@@ -19,7 +19,7 @@ public static class TenantScope
     /// <c>/api/{version}/enterprise/tenants/{tenantId}/clients/{clientId}/{resource}</c>
     /// </summary>
     /// <remarks>
-    /// <see cref="KeyLookup.Filter"/>, not <see cref="KeyLookup.Route"/>: the enterprise API
+    /// <see cref="KeyLookup.Filter"/>, not <see cref="KeyLookup.Route"/>: this path family
     /// does mount <c>via/:via_name</c> on <c>inventories</c>, <c>device_locations</c>,
     /// <c>buildings</c> and <c>floors</c>, but on none of its other resources -- not on
     /// <c>issues</c>, <c>incidents</c> or <c>departments</c>. The mechanism is one per scope,
@@ -33,7 +33,13 @@ public static class TenantScope
     /// <c>/api/{version}/enterprise/tenants/{tenantId}/{resource}</c>
     /// </summary>
     /// <remarks>
-    /// Resolves keys by gridfilter for the same reason as <see cref="Enterprise"/>.
+    /// Resolves keys by gridfilter, and for a stronger reason than <see cref="Enterprise"/>:
+    /// there it is that some resources under <c>clients/</c> lack the via route, here it is
+    /// that <b>none</b> of them has it. The four mounts added by the payload-parity change
+    /// sit inside <c>resources :clients</c>; the aggregate block below it
+    /// (<c>enterprise/tenants/{tenantId}/inventories|issues|…</c>) carries no via concern at
+    /// all, so <c>inventories</c> answers the route under <see cref="Enterprise"/> and the
+    /// router's 404 here.
     /// </remarks>
     public static ITenantScope EnterpriseTenant(string tenantId, string apiVersion = DefaultApiVersion)
         => new Scope(apiVersion, tenantId, clientId: null, isEnterprise: true, KeyLookup.Filter);

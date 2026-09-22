@@ -52,10 +52,11 @@ public sealed class LookupUnavailableException : Exception
     /// with a bare <c>{"status":404,"error":"Not Found"}</c>, which carries no
     /// <c>meta.msg</c>. That is the router talking, not the application, and it says nothing
     /// about any record. The enterprise API is where this bites: <c>via/:via_name/:via_value</c>
-    /// is mounted on 18 resources of the tenant API but only on four enterprise ones
-    /// (<c>inventories</c>, <c>device_locations</c>, <c>buildings</c>, <c>floors</c>), so
-    /// <see cref="ResourceLookup.ByVia"/> on any other resource there answers the router's
-    /// 404. Counted as absence, each cascade would quietly drop to its weakest key -- for
+    /// is mounted on 18 resources of the tenant API but only on four <b>client-scoped</b>
+    /// enterprise ones (<c>inventories</c>, <c>device_locations</c>, <c>buildings</c>,
+    /// <c>floors</c>) -- and on nothing at all under the aggregate enterprise paths, so even
+    /// <c>inventories</c> answers the router's 404 there. <see cref="ResourceLookup.ByVia"/>
+    /// on any other resource answers it too. Counted as absence, each cascade would quietly drop to its weakest key -- for
     /// inventories the device number, which the source may have reassigned to a different
     /// device.
     /// </para>
@@ -68,8 +69,9 @@ public sealed class LookupUnavailableException : Exception
             statusCode == 404 && !ApiEnvelope.HasEnvelope(body)
                 ? "The endpoint answered without the server's meta.msg envelope, so this is a "
                 + "missing route rather than a missing record. Check that the resource offers "
-                + "this lookup -- on the enterprise API via/:via_name is mounted only on "
-                + "inventories, device_locations, buildings and floors."
+                + "this lookup -- on the enterprise API via/:via_name is mounted only under "
+                + "clients/, and only on inventories, device_locations, buildings and floors; "
+                + "the aggregate enterprise paths mount none at all."
                 : ApiEnvelope.ErrorDetail(body));
     }
 

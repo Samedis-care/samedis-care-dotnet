@@ -85,7 +85,7 @@ public static class Cascades
     /// For device models the via route is not mounted on the tenant endpoint at all, only
     /// under <c>namespace :mdm</c>, so the gridfilter is the only thing a sync can use. It
     /// is also the only form that works in enterprise mode, where the <c>via</c> route is
-    /// mounted on four resources and device models are not among them — so even once
+    /// mounted on four client-scoped resources and device models are not among them — so even once
     /// samedis-care-issues#2347 puts the route on the tenant endpoint, switching this step to
     /// <see cref="ResourceLookup.ByUniqueField"/> would buy nothing and would make the scope
     /// harder to see, since the two paths carry it differently.
