@@ -96,6 +96,7 @@ public static class Cascades
     /// manufacturer and <c>external_id</c> die with it. Nothing records where it went, so
     /// <see cref="ResourceLookup.ById"/> on a historic id is a 404 too — resolving it to the
     /// survivor is the work in samedis-care-issues#2347 and is not in production.
+    /// </para>
     /// <para>
     /// What is certain is narrower than "every step misses": the destroyed record's own keys
     /// are gone — its <c>external_id</c>, and the pair <c>(tenant_id, external_id)</c>. The
@@ -104,6 +105,7 @@ public static class Cascades
     /// manufacturer and regulatory keys this cascade sends come from the source <i>row</i>,
     /// not from the destroyed record.
     /// </para>
+    /// <para>
     /// Either way the operational rule is the same: a caller that creates on a miss can
     /// recreate what an operator deliberately merged away, so it must not do that for a
     /// record that already has a model.
