@@ -98,6 +98,23 @@ The enterprise world deliberately supports **fewer** resources than the normal o
 resources are read-only). Consumers must account for that — `ITenantScope` builds paths,
 it does not guarantee they exist.
 
+### Listing the clients of a service world
+
+A service provider is as a rule **not a member** of the tenants it looks after, so
+`/user/tenants` does not show them. Its clients come from
+`GET /api/v4/enterprise/tenants/{provider}/clients`:
+
+```csharp
+using SamedisCare.Api.V4.Enterprise;
+
+var clients = EnterpriseClients.List(requestData, "v4", enterpriseTenantId, log);
+// -> [Client(TenantId, Name)], all pages; Name falls back to name2, then to the id
+```
+
+Each `TenantId` is what `TenantScope.Enterprise(enterpriseTenantId, clientId)` takes as
+`clientId`. `List` throws on an empty id or a failed request — a client picker has nothing
+useful to show either way.
+
 ## Finding existing records
 
 `ResourceLookup` performs the lookups and remembers hits **and** misses; `Cascades` holds
