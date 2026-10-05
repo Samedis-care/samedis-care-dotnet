@@ -15,6 +15,21 @@ public class Inventories
         [JsonProperty("id")] public string? Id { get; set; }
         [JsonProperty("tenant_id")] public string? TenantId { get; set; }
         [JsonProperty("device_number")] public string? DeviceNumber { get; set; }
+
+        /// <summary>
+        /// Service intervals in the compatibility shape the server sends:
+        /// <c>{ label =&gt; value }</c>, where the value is a bare number when the entry is
+        /// maintenance in months and the string <c>"value:unit:category"</c> otherwise — see
+        /// <c>WithService#service_intervals</c> in the backend.
+        /// </summary>
+        /// <remarks>
+        /// Also carried by the inventory index (<c>InventoryOverviewSerializer</c>), unlike an
+        /// issue's <c>with_service_intervals</c>, which only the full <c>IssueSerializer</c>
+        /// (show) returns. A tool reading a worklist from the issue index gets its interval here.
+        /// </remarks>
+        [JsonProperty("service_intervals")]
+        public Dictionary<string, object>? ServiceIntervals { get; set; }
+
         [JsonProperty("serial_number")] public string? SerialNumber { get; set; }
 
         [JsonProperty("device_model_title")] public string? DeviceModelTitle { get; set; }
