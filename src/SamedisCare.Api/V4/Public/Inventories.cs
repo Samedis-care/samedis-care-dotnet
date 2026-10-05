@@ -23,9 +23,16 @@ public class Inventories
         /// <c>WithService#service_intervals</c> in the backend.
         /// </summary>
         /// <remarks>
+        /// <para>
+        /// A value can be JSON <c>null</c>, when the interval was stored without a value, and the
+        /// string form can have an empty value part (<c>":month:inspection"</c>). Both mean "no
+        /// interval": treat them as absent. <c>Convert.ToInt32(null)</c> would turn them into 0.
+        /// </para>
+        /// <para>
         /// Also carried by the inventory index (<c>InventoryOverviewSerializer</c>), unlike an
         /// issue's <c>with_service_intervals</c>, which only the full <c>IssueSerializer</c>
         /// (show) returns. A tool reading a worklist from the issue index gets its interval here.
+        /// </para>
         /// </remarks>
         [JsonProperty("service_intervals")]
         public Dictionary<string, object>? ServiceIntervals { get; set; }

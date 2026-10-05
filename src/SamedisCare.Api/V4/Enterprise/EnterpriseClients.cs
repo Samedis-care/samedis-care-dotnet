@@ -55,7 +55,7 @@ public static class EnterpriseClients
     /// nothing useful to show either way.
     /// </summary>
     public static IReadOnlyList<Client> List(
-        RequestData samedis, string apiVersion, string enterpriseTenantId, ISyncLog log)
+        IApiClient samedis, string apiVersion, string enterpriseTenantId, ISyncLog log)
     {
         if (string.IsNullOrWhiteSpace(enterpriseTenantId))
             throw new InvalidOperationException(
