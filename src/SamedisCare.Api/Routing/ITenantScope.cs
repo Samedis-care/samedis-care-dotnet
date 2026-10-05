@@ -28,9 +28,10 @@ public interface ITenantScope
 
     /// <summary>
     /// How this backend lets a record be found by a key other than its id. Kept apart from
-    /// <see cref="IsEnterprise"/> on purpose: today the two happen to agree, but one is a
-    /// path family and the other is which routes are mounted, and a future release could
-    /// change either without the other.
+    /// <see cref="IsEnterprise"/> on purpose: one is a path family, the other is which routes
+    /// are mounted, and the two have already moved independently -- the enterprise API gained
+    /// <c>via/:via_name</c> on four resources without this becoming
+    /// <see cref="KeyLookup.Route"/>, because the rest of that API still has no such route.
     /// </summary>
     KeyLookup KeyLookup { get; }
 

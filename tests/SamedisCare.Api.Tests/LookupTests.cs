@@ -427,9 +427,10 @@ public class LookupFailureTests
     private const string RouteNotFound = "{\"status\":404,\"error\":\"Not Found\"}";
 
     // The distinction is not academic. via/:via_name is mounted on 18 resources of the tenant
-    // API and on NONE of the enterprise ones, verified both in config/routes and against the
-    // live enterprise API. Counted as absence, every cascade there would drop to its weakest
-    // key without a word in the log.
+    // API and on only four enterprise ones -- inventories, device_locations, buildings,
+    // floors -- verified in config/routes. On every other enterprise resource the route
+    // answers the router's 404; counted as absence, every cascade there would drop to its
+    // weakest key without a word in the log.
     [Fact]
     public void A_route_that_does_not_exist_is_not_a_record_that_does_not_exist()
     {
