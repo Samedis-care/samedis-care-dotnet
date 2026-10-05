@@ -35,6 +35,7 @@ and a future v5 can be added alongside instead of colliding.
 | `SamedisCare.Api.Lookup` | `ResourceLookup`, `Cascades`, `Records`, `Regulatory`, `LookupUnavailableException` |
 | `SamedisCare.Api.Common` | `Ids`, `JsonApi`, `Capability`, `ApiEnvelope` |
 | `SamedisCare.Api.V4.Public` | `Inventories`, `Issues`, `Trainings`, `Staffs`, `Positions`, `Departments`, `DepartmentInfo`, `CatalogValues` |
+| `SamedisCare.Api.V4.Enterprise` | `EnterpriseClients` (client list of a service world) |
 | `SamedisCare.Api.V4.Common` | `Tenant` — appears identically across several surfaces |
 | `SamedisCare.Helper.Logging` | `ISyncLog`, `ConsoleSyncLog`, `FileSyncLog`, `NullSyncLog`, `LogFormat` |
 | `SamedisCare.Helper.Text` | `Csv`, `Strings`, `Numbers`, `TextEncodings` |
