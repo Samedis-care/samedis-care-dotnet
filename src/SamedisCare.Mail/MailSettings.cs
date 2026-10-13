@@ -29,7 +29,13 @@ public sealed class MailSettings
 public sealed class SmtpSettings
 {
     public string? Server { get; set; }
-    public int Port { get; set; }
+
+    /// <summary>
+    /// 587 when <c>config.yml</c> leaves it out, as it was in the tools' own config classes
+    /// before this package. An explicit <c>port: 0</c> still fails the send.
+    /// </summary>
+    public int Port { get; set; } = 587;
+
     public string? Username { get; set; }
     public string? Password { get; set; }
 

@@ -416,7 +416,7 @@ await mailer.SendAsync(
 ```
 
 `MailSettings` is the shape the tools' `config.yml` already had, so an existing file keeps
-working. A failed send is reported through `ISyncLog` and returns false rather than throwing:
+working — including `mail.smtp.port`, which defaults to 587 when left out. A failed send is reported through `ISyncLog` and returns false rather than throwing:
 sending a report is not what a sync is for, and a mail server that is down should not lose a
 run that has already done its work.
 
