@@ -12,7 +12,7 @@ public class EnterpriseClientsTests
     {
         const string json = """
         { "data": [
-          { "id": "t1", "type": "tenants", "attributes": { "name": "Klinikum Nord" } },
+          { "id": "t1", "type": "tenants", "attributes": { "name": "Musterklinik Nord" } },
           { "id": "t2", "type": "tenants", "attributes": { "name": "", "name2": "MVZ Süd" } },
           { "id": "t3", "type": "tenants", "attributes": { } }
         ] }
@@ -22,7 +22,7 @@ public class EnterpriseClientsTests
 
         count.Should().Be(3);
         clients.Should().Equal(
-            new EnterpriseClients.Client("t1", "Klinikum Nord"),
+            new EnterpriseClients.Client("t1", "Musterklinik Nord"),
             new EnterpriseClients.Client("t2", "MVZ Süd"),
             new EnterpriseClients.Client("t3", "t3"));
     }
